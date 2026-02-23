@@ -1,0 +1,241 @@
+{% extends "base_gadget.html" %}
+{% load static %}{% load product_filters %}
+{% block title %}Hello Gads — Premium Gadgets{% endblock %}
+{% block meta_description %}Shop premium electronics, mobile accessories, headphones and more.{% endblock %}
+{% block content %}
+<!-- Hero Carousel -->
+<section class="hero-section">
+    <div class="header-carousel owl-carousel">
+        {% if banners %}
+            {% for banner in banners %}
+            <div class="hero-carousel-item">
+                <div class="container h-100">
+                    <div class="row align-items-center h-100 gy-4">
+                        <div class="col-md-6 order-2 order-md-1 hero-content wow fadeInLeft" data-wow-delay="0.1s">
+                            <span class="hero-eyebrow">{{ banner.title|default:"New Arrival" }}</span>
+                            <h1 class="display-4">{{ banner.title|default:"Premium Gadgets" }}</h1>
+                            <p>Shop the latest electronics at great prices.</p>
+                            {% if banner.redirect_url %}
+                            <a href="{{ banner.redirect_url }}" class="hero-cta-primary btn">Shop Now <i class="fas fa-arrow-right ms-2"></i></a>
+                            {% else %}
+                            <a href="{% url 'store:product_list' %}" class="hero-cta-primary btn">Shop Now <i class="fas fa-arrow-right ms-2"></i></a>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 order-1 order-md-2 wow fadeInRight" data-wow-delay="0.2s">
+                            <div class="hero-img-wrap">
+                                <img src="{{ banner.image.url }}" alt="{{ banner.title|default:'Banner' }}" class="img-fluid" loading="{% if forloop.first %}eager{% else %}lazy{% endif %}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="hero-carousel-item">
+                <div class="container h-100">
+                    <div class="row align-items-center h-100 gy-4">
+                        <div class="col-md-6 order-2 order-md-1 hero-content wow fadeInLeft" data-wow-delay="0.1s">
+                            <span class="hero-eyebrow">New Arrival 2026</span>
+                            <h1 class="display-4">Premium<br>Gadgets<br>Here</h1>
+                            <p>Shop the latest electronics at great prices.</p>
+                            <a href="{% url 'store:product_list' %}" class="hero-cta-primary btn">Shop Now <i class="fas fa-arrow-right ms-2"></i></a>
+                        </div>
+                        <div class="col-md-6 order-1 order-md-2 wow fadeInRight" data-wow-delay="0.2s">
+                            <div class="hero-img-wrap">
+                                <img src="{% static 'img/carousel-1.png' %}" alt="Premium Gadgets" class="img-fluid">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Services Strip -->
+<div class="services-strip">
+    <div class="container px-0">
+        <div class="row g-0">
+            <div class="col-6 col-md-3">
+                <div class="service-item">
+                    <i class="fas fa-shipping-fast"></i>
+                    <div><h6>Free Shipping</h6><p>On orders over ₹499</p></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="service-item">
+                    <i class="fas fa-undo-alt"></i>
+                    <div><h6>Easy Returns</h6><p>Hassle-free returns</p></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="service-item">
+                    <i class="fas fa-lock"></i>
+                    <div><h6>Secure Payment</h6><p>100% protected</p></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="service-item" style="border-right:none;">
+                    <i class="fas fa-headset"></i>
+                    <div><h6>Support</h6><p>We're here for you</p></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Categories -->
+<section class="section-pad bg-bw-1">
+    <div class="container">
+        <div class="text-center mb-4 wow fadeInUp" data-wow-delay="0.1s">
+            <span class="section-label">Browse By</span>
+            <h2 class="section-title">Shop Categories</h2>
+            <div class="section-divider mx-auto"></div>
+        </div>
+        <div class="row g-3 wow fadeInUp" data-wow-delay="0.2s">
+            {% for category in categories %}
+            <div class="col-6 col-md-4 col-lg-2">
+                <a href="{% url 'store:product_list' %}?category={{ category.slug }}" class="category-card text-decoration-none">
+                    {% if category.image %}
+                    <img src="{{ category.image.url }}" alt="{{ category.name }}" loading="lazy">
+                    {% else %}
+                    <img src="{% static 'img/product-1.png' %}" alt="{{ category.name }}" loading="lazy">
+                    {% endif %}
+                    <h6>{{ category.name }}</h6>
+                </a>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center text-muted">No categories yet.</div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Best Sellers -->
+<section class="section-pad">
+    <div class="container">
+        <div class="d-flex align-items-end justify-content-between mb-4 wow fadeInUp" data-wow-delay="0.1s">
+            <div>
+                <span class="section-label">Top Picks</span>
+                <h2 class="section-title mb-0">Best Sellers</h2>
+                <div class="section-divider"></div>
+            </div>
+            <a href="{% url 'store:product_list' %}" class="btn btn-outline-dark px-4 d-none d-md-inline-flex">View All</a>
+        </div>
+        <div class="products-grid wow fadeInUp" data-wow-delay="0.2s">
+            {% for product in bestseller_products %}
+                {% with first_variant=product.variants.all|first %}
+                {% if first_variant %}
+                <div class="product-card">
+                    <div class="product-img-wrap">
+                        {% if product.discount_percent %}<span class="product-badge badge-sale">−{{ product.discount_percent }}%</span>{% endif %}
+                        <a href="{% url 'store:product_detail' product.slug %}?variant={{ first_variant.id }}">
+                            {% with imgs=first_variant.images.all %}{% if imgs %}
+                            <img src="{{ imgs.0.image.url }}" alt="{{ product.name }}" loading="lazy">
+                            {% else %}
+                            <img src="{% static 'img/product-1.png' %}" alt="{{ product.name }}" loading="lazy">
+                            {% endif %}{% endwith %}
+                        </a>
+                        <button type="button" class="product-wishlist js-wishlist-toggle" data-variant-id="{{ first_variant.id }}" title="Add to Wishlist"><i class="far fa-heart"></i></button>
+                        <a href="{% url 'store:product_detail' product.slug %}?variant={{ first_variant.id }}" class="product-quick-add">View Detail <i class="fas fa-arrow-right ms-1"></i></a>
+                    </div>
+                    <div class="product-body">
+                        <div class="product-category">{{ product.category.name|default:"" }}</div>
+                        <a href="{% url 'store:product_detail' product.slug %}?variant={{ first_variant.id }}" class="text-decoration-none"><h3 class="product-name">{{ product.name }}</h3></a>
+                        <div class="product-price">
+                            <span class="price-current">₹{{ first_variant.price|floatformat:0 }}</span>
+                            {% if first_variant.original_price and first_variant.original_price > first_variant.price %}
+                            <span class="price-old">₹{{ first_variant.original_price|floatformat:0 }}</span>
+                            {% endif %}
+                        </div>
+                        <form method="post" action="{% url 'store:cart_add' %}" class="product-add-form d-inline-block w-100">
+                            {% csrf_token %}
+                            <input type="hidden" name="product_id" value="{{ product.id }}">
+                            <input type="hidden" name="variant_id" value="{{ first_variant.id }}">
+                            <input type="hidden" name="quantity" value="1">
+                            <button type="submit" class="product-cta w-100 border-0">Add to Cart</button>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
+                {% endwith %}
+            {% empty %}
+            <p class="text-muted">No bestsellers yet.</p>
+            {% endfor %}
+        </div>
+        <div class="text-center mt-4 d-md-none wow fadeInUp" data-wow-delay="0.3s">
+            <a href="{% url 'store:product_list' %}" class="btn btn-secondary px-5">View All Products</a>
+        </div>
+    </div>
+</section>
+
+<!-- Promo Banner -->
+<section class="section-pad bg-bw-1">
+    <div class="container">
+        <div class="promo-banner wow fadeInUp" data-wow-delay="0.1s">
+            <p class="text-uppercase fw-bold mb-2" style="letter-spacing:.15em;color:#ccc;">Limited Time Offer</p>
+            <h2 class="display-5">Up to 40% Off<br>Selected Accessories</h2>
+            <p class="mb-4">Cables, cases, chargers and more.</p>
+            <a href="{% url 'store:product_list' %}" class="hero-cta-primary btn px-5">Shop the Sale <i class="fas fa-arrow-right ms-2"></i></a>
+        </div>
+    </div>
+</section>
+
+<!-- Featured Products -->
+<section class="section-pad">
+    <div class="container">
+        <div class="d-flex align-items-end justify-content-between mb-4 wow fadeInUp" data-wow-delay="0.1s">
+            <div>
+                <span class="section-label">Hand-Picked</span>
+                <h2 class="section-title mb-0">Featured Products</h2>
+                <div class="section-divider"></div>
+            </div>
+            <a href="{% url 'store:product_list' %}" class="btn btn-outline-dark px-4 d-none d-md-inline-flex">View All</a>
+        </div>
+        <div class="products-grid wow fadeInUp" data-wow-delay="0.2s">
+            {% for product in featured_products %}
+                {% with first_variant=product.variants.all|first %}
+                {% if first_variant %}
+                <div class="product-card">
+                    <div class="product-img-wrap">
+                        <span class="product-badge badge-new">Featured</span>
+                        <a href="{% url 'store:product_detail' product.slug %}?variant={{ first_variant.id }}">
+                            {% with imgs=first_variant.images.all %}{% if imgs %}
+                            <img src="{{ imgs.0.image.url }}" alt="{{ product.name }}" loading="lazy">
+                            {% else %}
+                            <img src="{% static 'img/product-1.png' %}" alt="{{ product.name }}" loading="lazy">
+                            {% endif %}{% endwith %}
+                        </a>
+                        <button type="button" class="product-wishlist js-wishlist-toggle" data-variant-id="{{ first_variant.id }}" title="Add to Wishlist"><i class="far fa-heart"></i></button>
+                        <a href="{% url 'store:product_detail' product.slug %}?variant={{ first_variant.id }}" class="product-quick-add">View Detail <i class="fas fa-arrow-right ms-1"></i></a>
+                    </div>
+                    <div class="product-body">
+                        <div class="product-category">{{ product.category.name|default:"" }}</div>
+                        <a href="{% url 'store:product_detail' product.slug %}?variant={{ first_variant.id }}" class="text-decoration-none"><h3 class="product-name">{{ product.name }}</h3></a>
+                        <div class="product-price">
+                            <span class="price-current">₹{{ first_variant.price|floatformat:0 }}</span>
+                            {% if first_variant.original_price and first_variant.original_price > first_variant.price %}
+                            <span class="price-old">₹{{ first_variant.original_price|floatformat:0 }}</span>
+                            {% endif %}
+                        </div>
+                        <form method="post" action="{% url 'store:cart_add' %}" class="product-add-form d-inline-block w-100">
+                            {% csrf_token %}
+                            <input type="hidden" name="product_id" value="{{ product.id }}">
+                            <input type="hidden" name="variant_id" value="{{ first_variant.id }}">
+                            <input type="hidden" name="quantity" value="1">
+                            <button type="submit" class="product-cta w-100 border-0">Add to Cart</button>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
+                {% endwith %}
+            {% empty %}
+            <p class="text-muted">No featured products yet.</p>
+            {% endfor %}
+        </div>
+        <div class="text-center mt-4 d-md-none">
+            <a href="{% url 'store:product_list' %}" class="btn btn-secondary px-5">View All Products</a>
+        </div>
+    </div>
+</section>
+{% endblock %}
