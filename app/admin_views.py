@@ -704,7 +704,7 @@ class OrderDetailView(StaffRequiredMixin, DetailView):
     
     def get_queryset(self):
         return Order.objects.select_related("address", "payment").prefetch_related(
-            "items__product", "items__variant"
+            "items__product", "items__selected_variant"
         )
     
     def get_context_data(self, **kwargs):
@@ -724,7 +724,7 @@ class OrderInvoiceView(StaffRequiredMixin, DetailView):
     
     def get_queryset(self):
         return Order.objects.select_related("address", "payment").prefetch_related(
-            "items__product", "items__variant"
+            "items__product", "items__selected_variant"
         )
 
 

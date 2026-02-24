@@ -136,8 +136,9 @@
                     <div class="trust-badge"><i class="fas fa-undo-alt"></i> Easy Returns</div>
                 </div>
 
-                <button type="button" class="product-wishlist position-relative {% if in_wishlist %}in-wishlist{% endif %}" id="productWishlistBtn" data-variant-id="{{ selected_variant.id|default:'' }}" title="Wishlist" style="margin-top:1rem;">
-                    <i class="far fa-heart"></i> Add to Wishlist
+                <button type="button" class="product-wishlist {% if in_wishlist %}in-wishlist{% endif %}" id="productWishlistBtn" data-variant-id="{{ selected_variant.id }}" title="Wishlist">
+                    <i class="{% if in_wishlist %}fas{% else %}far{% endif %} fa-heart"></i> 
+                    <span class="wishlist-text">{% if in_wishlist %}In Wishlist{% else %}Add to Wishlist{% endif %}</span>
                 </button>
             </div>
         </div>
@@ -174,6 +175,43 @@
                     <p class="mb-0">{{ review.comment }}</p>
                 </div>
                 {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Review Form -->
+        {% if can_review %}
+        <div class="row mt-4">
+            <div class="col-lg-6">
+                <h4 class="mb-3">Write a Review</h4>
+                <form id="reviewForm" action="{% url 'store:product_review_create' product.id %}" method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold d-block">Rating <span class="text-danger">*</span></label>
+                        <div style="display:flex;gap:4px;margin-top:6px;">
+                            {% for i in "12345" %}
+                            <button type="button" class="star-btn" data-value="{{ forloop.counter }}" style="background:none;border:none;font-size:36px;color:#ddd;cursor:pointer;padding:0 2px;line-height:1;transition:color 0.1s;">★</button>
+                            {% endfor %}
+                        </div>
+                        <input type="hidden" name="rating" id="reviewRating">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Title <span class="text-muted fw-normal small">(optional)</span></label>
+                        <input type="text" name="title" class="form-control" placeholder="Summarise your experience" maxlength="200">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Review <span class="text-muted fw-normal small">(optional)</span></label>
+                        <textarea name="comment" class="form-control" rows="4" placeholder="Share your thoughts about this product..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-dark px-4" id="reviewSubmitBtn">Submit Review</button>
+                    <span id="reviewMsg" class="ms-3 small"></span>
+                </form>
+            </div>
+        </div>
+        {% elif user_review %}
+        <div class="row mt-3">
+            <div class="col-12">
+                <p class="text-muted small">✓ You have already reviewed this product.</p>
             </div>
         </div>
         {% endif %}
@@ -219,18 +257,6 @@
     var qtyInput = document.getElementById('qtyInput');
     var formQuantity = document.getElementById('formQuantity');
     if (!qtyInput) return;
-    document.querySelectorAll('.btn-minus').forEach(function(btn){
-        btn.addEventListener('click', function(){
-            var n = Math.max(1, parseInt(qtyInput.value, 10) - 1);
-            qtyInput.value = n; if(formQuantity) formQuantity.value = n;
-        });
-    });
-    document.querySelectorAll('.btn-plus').forEach(function(btn){
-        btn.addEventListener('click', function(){
-            var n = Math.min(99, parseInt(qtyInput.value, 10) + 1);
-            qtyInput.value = n; if(formQuantity) formQuantity.value = n;
-        });
-    });
     document.querySelectorAll('.gallery-thumb img').forEach(function(thumb){
         thumb.addEventListener('click', function(){
             var src = this.getAttribute('data-full') || this.src;
@@ -306,6 +332,107 @@
             }
             addToCartForm.action = buyNowUrl;
             addToCartForm.submit();
+        });
+    }
+    //Wishlist
+    document.getElementById('productWishlistBtn').addEventListener('click', function() {
+        const btn = this;
+        const variantId = btn.getAttribute('data-variant-id');
+        const icon = btn.querySelector('i');
+        const textSpan = btn.querySelector('.wishlist-text');
+
+        if (!variantId) {
+            alert("Please select a product variant first.");
+            return;
+        }
+
+        fetch("/api/wishlist/toggle/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": "{{ csrf_token }}", 
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            body: JSON.stringify({ "variant_id": variantId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Toggle visual state
+                btn.classList.toggle('in-wishlist', data.added);
+                icon.classList.toggle('fas', data.added);
+                icon.classList.toggle('far', !data.added);
+                textSpan.innerText = data.added ? "In Wishlist" : "Add to Wishlist";
+            } else {
+                alert(data.error || "Something went wrong");
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    });
+    // Review Form
+    var reviewForm = document.getElementById('reviewForm');
+    if (reviewForm) {
+        var stars = reviewForm.querySelectorAll('.star-btn');
+        var ratingInput = document.getElementById('reviewRating');
+        stars.forEach(function(btn){
+            btn.addEventListener('mouseenter', function(){
+                var hoverVal = parseInt(btn.getAttribute('data-value'));
+                stars.forEach(function(b){
+                    b.style.color = parseInt(b.getAttribute('data-value')) <= hoverVal ? '#f5a623' : '#ddd';
+                });
+            });
+            btn.addEventListener('mouseleave', function(){
+                var selected = ratingInput.value ? parseInt(ratingInput.value) : 0;
+                stars.forEach(function(b){
+                    b.style.color = parseInt(b.getAttribute('data-value')) <= selected ? '#f5a623' : '#ddd';
+                });
+            });
+            btn.addEventListener('click', function(){
+                var val = parseInt(btn.getAttribute('data-value'));
+                ratingInput.value = val;
+                stars.forEach(function(b){
+                    b.style.color = parseInt(b.getAttribute('data-value')) <= val ? '#f5a623' : '#ddd';
+                });
+            });
+        });
+        reviewForm.addEventListener('submit', function(e){
+            e.preventDefault();
+            if (!ratingInput.value) {
+                document.getElementById('reviewMsg').style.color = 'red';
+                document.getElementById('reviewMsg').textContent = 'Please select a rating.';
+                return;
+            }
+            var submitBtn = document.getElementById('reviewSubmitBtn');
+            var msg = document.getElementById('reviewMsg');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            fetch(reviewForm.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: new FormData(reviewForm)
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                if (data.success) {
+                    msg.style.color = 'green';
+                    msg.textContent = data.message || 'Review submitted!';
+                    setTimeout(function(){ location.reload(); }, 1200);
+                } else {
+                    msg.style.color = 'red';
+                    msg.textContent = data.error || 'Something went wrong.';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Review';
+                }
+            })
+            .catch(function(){
+                msg.style.color = 'red';
+                msg.textContent = 'Network error. Please try again.';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Review';
+            });
         });
     }
 })();

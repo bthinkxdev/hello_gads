@@ -751,22 +751,32 @@ a:hover { color: var(--clr-black); }
 
 /* Wishlist icon */
 .product-wishlist {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 2;
-    width: 34px;
-    height: 34px;
-    background: var(--clr-white);
-    border: 1px solid var(--clr-grey-2);
-    border-radius: 50%;
+    position: relative; 
+    top: 0; 
+    right: 0;
+    width: fit-content;
+    height: 40px; 
+    padding: 0 15px;
+    border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 10px; 
+    z-index: 2;
+    background: var(--clr-white);
+    border: 1px solid var(--clr-grey-2);
     transition: var(--transition);
     cursor: pointer;
     color: var(--clr-grey-4);
-    font-size: var(--text-sm);
+    font-size: 14px;
+}
+
+.product-wishlist.in-wishlist {
+    color: #e74c3c;
+    border-color: #e74c3c;
+}
+.product-wishlist.in-wishlist i {
+    font-weight: 900; 
 }
 .product-wishlist:hover {
     background: var(--clr-black);

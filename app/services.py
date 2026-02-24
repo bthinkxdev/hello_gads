@@ -171,8 +171,9 @@ class CartService:
         try:
             subtotal = sum(item.line_total for item in cart.items.select_related("product"))
             # Constant ₹80 delivery charge for all orders (any amount)
+            FREE_SHIPPING_THRESHOLD = getattr(settings, "FREE_SHIPPING_ABOVE", 499)
             delivery_charge = getattr(settings, "FLAT_DELIVERY_CHARGE", 80)
-            shipping = delivery_charge
+            shipping = 0 if subtotal >= FREE_SHIPPING_THRESHOLD else delivery_charge
             total = subtotal + shipping
             return CartTotals(subtotal=subtotal, shipping=shipping, total=total)
         except Exception:

@@ -711,6 +711,16 @@
                     addVariantStock.value = "0";
                     if (addVariantSku) addVariantSku.value = "";
                     if (addVariantImage) addVariantImage.value = "";
+
+                    var activeToggle = document.getElementById("add-variant-is_active");
+                    var activeWrap = activeToggle && activeToggle.closest(".toggle-wrap");
+                    if (activeToggle) activeToggle.checked = true;
+                    if (activeWrap) {
+                        activeWrap.classList.add("checked");
+                        var status = activeWrap.querySelector(".toggle-status");
+                        if (status) status.textContent = "On";
+                    }
+
                     addVariantModal.classList.add("is-open");
                     addVariantModal.setAttribute("aria-hidden", "false");
                 });
@@ -973,13 +983,17 @@
                 return r.json();
             })
             .then(function (res) {
-                if (!res.success) {
-                    e.target.checked = !isActive;
-                    toast((res.errors && res.errors.is_active && res.errors.is_active[0]) || "Error", "error");
-                } else {
-                    toast(isActive ? "Variant active." : "Variant inactive.");
-                }
-            })
+                    if (!res.success) {
+                        e.target.checked = !isActive;
+                        var wrap = e.target.closest(".toggle-wrap");
+                        if (wrap) wrap.classList.toggle("checked", !isActive);
+                        toast((res.errors && res.errors.is_active && res.errors.is_active[0]) || "Error", "error");
+                    } else {
+                        var wrap = e.target.closest(".toggle-wrap");
+                        if (wrap) wrap.classList.toggle("checked", isActive);
+                        toast(isActive ? "Variant active." : "Variant inactive.");
+                    }
+                })
             .catch(function () {
                 e.target.checked = !isActive;
                 toast("Network error.", "error");

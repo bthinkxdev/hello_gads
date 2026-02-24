@@ -423,6 +423,11 @@ class ProductDetailView(DetailView):
                 .order_by("-created_at")
             )
 
+            reviews_list = list(reviews_qs)
+            total_reviews = product.total_reviews or 0
+
+            average_rating = float(product.average_rating) if total_reviews > 0 else None
+
             # Star breakdown (5★..1★)
             breakdown_raw = reviews_qs.values("rating").annotate(count=Count("id"))
             rating_breakdown = {i: 0 for i in range(5, 0, -1)}
@@ -430,12 +435,12 @@ class ProductDetailView(DetailView):
                 r = int(row["rating"])
                 if 1 <= r <= 5:
                     rating_breakdown[r] = row["count"]
+
             # Precomputed rows for template (star, count, percent)
             breakdown_rows = []
-            total = product.total_reviews or 0
             for star in range(5, 0, -1):
                 count = rating_breakdown.get(star, 0)
-                percent = int((count / total) * 100) if total else 0
+                percent = int((count / total_reviews) * 100) if total_reviews else 0
                 breakdown_rows.append(
                     {
                         "star": star,
@@ -460,7 +465,9 @@ class ProductDetailView(DetailView):
                     ).exists()
                     can_review = has_delivered_order
 
-            context["reviews"] = list(reviews_qs)
+            context["reviews"] = reviews_list
+            context["average_rating"] = average_rating
+            context["total_reviews"] = total_reviews
             context["rating_breakdown"] = rating_breakdown
             context["rating_breakdown_rows"] = breakdown_rows
             context["can_review"] = can_review
