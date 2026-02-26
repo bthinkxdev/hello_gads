@@ -285,6 +285,20 @@
         border-top: 1px solid var(--gray-200);
         background: var(--white);
     }
+    .report-table-wrap .report-table {
+        display: block;
+        width: 100%;
+    }
+
+    .report-table-wrap .report-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .report-table-wrap .report-table tbody tr {
+        width: 100%;
+        box-sizing: border-box;
+    }
 }
 
 /* --------------------------------------
@@ -762,6 +776,26 @@
     .reviews-admin-page .reviews-table-wrap .reviews-table tbody td[data-label="Title & Comment"] .reviews-comment {
         max-width: none;
         word-break: break-word;
+    }
+    .reviews-admin-page .reviews-table-wrap .reviews-table tbody td[data-label="Review"] {
+    flex-direction: column;
+    align-items: flex-start;
+    }
+
+    .reviews-admin-page .reviews-table-wrap .reviews-table tbody td[data-label="Review"]::before {
+        margin-bottom: 0.35rem;
+    }
+    .reviews-admin-page .reviews-table-wrap .reviews-table tbody tr {
+        overflow: hidden;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .reviews-admin-page .reviews-table-wrap .reviews-table tbody td {
+        max-width: 100%;
+        overflow: hidden;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
     /* Empty state */
     .reviews-admin-page .reviews-table-wrap .reviews-table tbody tr td[colspan] {

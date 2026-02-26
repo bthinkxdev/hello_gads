@@ -11,10 +11,10 @@
         white-space: nowrap;
     }
     .reviews-comment {
-        color: #64748b;
-        max-width: 380px;
-        font-size: 0.8rem;
-    }
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
     .badge-status {
         display: inline-flex;
         align-items: center;
@@ -35,7 +35,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="content-area reviews-admin-page">
+<div class="reviews-admin-page">
     <div class="card">
         <div class="card-header">
             <div>

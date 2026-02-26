@@ -81,8 +81,7 @@ def get_base_order_queryset():
     """Orders with address, user, and payment. Optimized to avoid N+1."""
     return Order.objects.select_related("address", "user", "payment").prefetch_related(
         "items__product",
-        "items__variant",
-        "items__size_variant",
+        "items__selected_variant",
     )
 
 

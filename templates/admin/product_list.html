@@ -229,6 +229,13 @@
                                 <span class="product-action-link" style="color: var(--gray-400); cursor: not-allowed;" title="Product is inactive">View</span>
                             {% endif %}
                             <span class="product-action-divider">|</span>
+                            <button type="button" class="product-action-link btn-link delete-btn" 
+                                    data-product-id="{{ product.pk }}" 
+                                    data-product-name="{{ product.name }}" 
+                                    data-delete-url="{% url 'admin_panel:product_delete' product.pk %}"
+                                    style="color: var(--danger); background: none; border: none; cursor: pointer; padding: 0;">
+                                Delete
+                            </button>
                         </div>
                     </div>
                     {% endfor %}

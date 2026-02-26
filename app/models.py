@@ -371,6 +371,12 @@ class Order(TimeStampedModel):
     shipping = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     total = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     address = models.ForeignKey(Address, on_delete=models.PROTECT, related_name="orders")
+    # Shiprocket
+    shiprocket_order_id = models.CharField(max_length=100, blank=True, null=True)
+    shiprocket_shipment_id = models.CharField(max_length=100, blank=True, null=True)
+    awb_code = models.CharField(max_length=100, blank=True, null=True)
+    courier_name = models.CharField(max_length=100, blank=True, null=True)
+    label_url = models.URLField(blank=True, null=True)
 
     class Meta:
         ordering = ["-created_at"]

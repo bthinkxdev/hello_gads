@@ -74,7 +74,7 @@ from .admin_product_edit_views import (
 )
 
 logger = logging.getLogger(__name__)
-
+from .shiprocket import shiprocket
 
 class StaffRequiredMixin(UserPassesTestMixin):
     """Mixin to require staff/admin access"""
@@ -1138,3 +1138,74 @@ class ReviewListView(StaffRequiredMixin, TemplateView):
         # Product aggregates are kept in sync by Review model signals
         return redirect("admin_panel:review_list")
 
+class CreateShipmentView(StaffRequiredMixin, View):
+    def post(self, request, order_number):
+        order = get_object_or_404(Order, order_number=order_number)
+
+        # Don't create duplicate shipments
+        if order.shiprocket_order_id:
+            messages.warning(request, "Shipment already created for this order.")
+            return redirect("admin_panel:order_detail", order_number=order_number)
+
+        try:
+            # Step 1: Create order on Shiprocket
+            sr_order = shiprocket.create_order(order)
+            order.shiprocket_order_id = str(sr_order.get("order_id", ""))
+            order.shiprocket_shipment_id = str(sr_order.get("shipment_id", ""))
+            order.save(update_fields=["shiprocket_order_id", "shiprocket_shipment_id"])
+
+            # Step 2: Generate AWB
+            try:
+                awb_data = shiprocket.generate_awb(order.shiprocket_shipment_id)
+                logger.info(f"AWB response: {awb_data}")
+            except Exception as awb_err:
+                logger.error(f"AWB error detail: {awb_err.response.text if hasattr(awb_err, 'response') else awb_err}")
+                raise
+            awb_code = (
+                awb_data.get("response", {})
+                .get("data", {})
+                .get("awb_code", "")
+            )
+            courier_name = (
+                awb_data.get("response", {})
+                .get("data", {})
+                .get("courier_name", "")
+            )
+            order.awb_code = awb_code
+            order.courier_name = courier_name
+            order.save(update_fields=["awb_code", "courier_name"])
+
+            # Step 3: Request Pickup
+            shiprocket.request_pickup(order.shiprocket_shipment_id)
+
+            # Step 4: Get Label
+            label_data = shiprocket.get_label(order.shiprocket_shipment_id)
+            order.label_url = label_data.get("label_url", "")
+            order.status = Order.Status.SHIPPED
+            order.save(update_fields=["label_url", "status"])
+
+            messages.success(
+                request,
+                f"Shipment created! AWB: {awb_code} | Courier: {courier_name}"
+            )
+
+        except Exception as e:
+            logger.error(f"Shiprocket error for order {order_number}: {e}")
+            messages.error(request, f"Shiprocket error: {str(e)}")
+
+        return redirect("admin_panel:order_detail", order_number=order_number)
+
+
+class TrackShipmentView(StaffRequiredMixin, View):
+    def get(self, request, order_number):
+        order = get_object_or_404(Order, order_number=order_number)
+
+        if not order.awb_code:
+            return JsonResponse({"error": "No AWB code found for this order."}, status=400)
+
+        try:
+            tracking_data = shiprocket.track_shipment(order.awb_code)
+            return JsonResponse({"success": True, "data": tracking_data})
+        except Exception as e:
+            logger.error(f"Tracking error for order {order_number}: {e}")
+            return JsonResponse({"error": str(e)}, status=500)

@@ -201,6 +201,9 @@ SITE_WHATSAPP = config("SITE_WHATSAPP", default="916238439926")  # No + or space
 RZP_CLIENT_ID = config('RZP_CLIENT_ID')
 RZP_CLIENT_SECRET = config('RZP_CLIENT_SECRET')
 
+# Shiprocket Configuration
+SHIPROCKET_EMAIL = config('SHIPROCKET_EMAIL')
+SHIPROCKET_PASSWORD = config('SHIPROCKET_PASSWORD')
 
 # AWS S3 Storage configuration
 USE_S3 = config('USE_S3', default=False, cast=bool)

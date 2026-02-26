@@ -120,6 +120,46 @@
     </div>
 </div>
 
+<!-- Shiprocket Shipment -->
+<div class="card mt-3">
+    <div class="card-header">
+        <h3 class="card-title">Shipment</h3>
+    </div>
+    <div class="card-body">
+        {% if order.shiprocket_order_id %}
+            <div class="order-detail-info-row">
+                <span class="order-detail-info-label">Shiprocket Order ID</span>
+                <span class="order-detail-info-value">{{ order.shiprocket_order_id }}</span>
+            </div>
+            <div class="order-detail-info-row">
+                <span class="order-detail-info-label">AWB Code</span>
+                <span class="order-detail-info-value">{{ order.awb_code }}</span>
+            </div>
+            <div class="order-detail-info-row">
+                <span class="order-detail-info-label">Courier</span>
+                <span class="order-detail-info-value">{{ order.courier_name }}</span>
+            </div>
+            {% if order.label_url %}
+            <div class="order-detail-info-row">
+                <span class="order-detail-info-label">Shipping Label</span>
+                <a href="{{ order.label_url }}" target="_blank" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-download"></i> Download Label
+                </a>
+            </div>
+            {% endif %}
+        {% else %}
+            <p style="color: #888; margin-bottom: 1rem;">No shipment created yet.</p>
+            <form method="post" action="{% url 'admin_panel:order_create_shipment' order.order_number %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary"
+                    onclick="return confirm('Create shipment for order {{ order.order_number }}?')">
+                    <i class="fas fa-truck"></i> Create Shipment via Shiprocket
+                </button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+
 <!-- Order Items -->
 <div class="card mt-3">
     <div class="card-header">
