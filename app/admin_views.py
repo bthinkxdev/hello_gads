@@ -36,6 +36,7 @@ from .models import (
     Product,
     ProductAttributeValue,
     Review,
+    Shipment,
     Variant,
     VariantImage,
 )
@@ -74,7 +75,11 @@ from .admin_product_edit_views import (
 )
 
 logger = logging.getLogger(__name__)
-from .shiprocket import shiprocket
+from .services.shiprocket_service import (
+    shiprocket_service,
+    ShiprocketAPIError,
+    create_shipment_for_order,
+)
 
 class StaffRequiredMixin(UserPassesTestMixin):
     """Mixin to require staff/admin access"""
@@ -176,7 +181,7 @@ class VariantImageReorderView(StaffRequiredMixin, BaseVariantImageReorderView):
 
 # Authentication Views
 class AdminLoginView(View):
-    template_name = "admin/login.html"
+    template_name = "admin_panel/login.html"
     
     def get(self, request):
         if request.user.is_authenticated and request.user.is_staff:
@@ -711,6 +716,7 @@ class OrderDetailView(StaffRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context["active_menu"] = "orders"
         context["status_choices"] = Order.Status.choices
+        context["shipment"] = getattr(self.object, "shipment", None)
         return context
 
 
@@ -733,13 +739,151 @@ class OrderUpdateStatusView(StaffRequiredMixin, View):
         order = get_object_or_404(Order, order_number=order_number)
         new_status = request.POST.get("status")
         
-        if new_status in dict(Order.Status.choices):
-            order.status = new_status
-            order.save(update_fields=["status"])
-            messages.success(request, f"Order status updated to {order.get_status_display()}.")
-        else:
+        if new_status not in dict(Order.Status.choices):
             messages.error(request, "Invalid status.")
+            return redirect("admin_panel:order_detail", order_number=order_number)
+
+        # Prevent cancelling delivered orders
+        if new_status == Order.Status.CANCELLED and order.status == Order.Status.DELIVERED:
+            messages.error(request, "Cannot cancel an order that has already been delivered.")
+            return redirect("admin_panel:order_detail", order_number=order_number)
+
+        # If moving to cancelled and shipment exists, attempt Shiprocket cancellation
+        if new_status == Order.Status.CANCELLED:
+            shipment = getattr(order, "shipment", None)
+            if shipment and not shipment.is_cancelled:
+                try:
+                    shiprocket_service.cancel_shipment(shipment)
+                    shipment.is_cancelled = True
+                    shipment.cancelled_at = timezone.now()
+                    shipment.current_status = "cancelled"
+                    shipment.save(update_fields=["is_cancelled", "cancelled_at", "current_status", "updated_at"])
+                except ShiprocketAPIError as exc:
+                    messages.error(request, f"Failed to cancel shipment in Shiprocket: {exc}")
+                    return redirect("admin_panel:order_detail", order_number=order_number)
+                except Exception as exc:
+                    logger.error(
+                        "Unexpected error cancelling shipment for order %s via status update: %s",
+                        order_number,
+                        exc,
+                        exc_info=True,
+                    )
+                    messages.error(request, "Unexpected error while cancelling shipment.")
+                    return redirect("admin_panel:order_detail", order_number=order_number)
+
+        order.status = new_status
+        order.save(update_fields=["status"])
+        messages.success(request, f"Order status updated to {order.get_status_display()}.")
         
+        return redirect("admin_panel:order_detail", order_number=order_number)
+
+
+def _normalize_tracking_response(data):
+    """
+    Normalize Shiprocket track-by-AWB API response into our tracking_data shape
+    (status, eta, activities) for storage on Shipment.tracking_data.
+    """
+    out = {"status": "", "eta": "", "activities": []}
+    if not data:
+        return out
+    # Response can be { "tracking_data": { "shipment_track": [ {...} ] } } or similar
+    tracking_data = data.get("tracking_data") or data
+    shipment_tracks = tracking_data.get("shipment_track") or []
+    if isinstance(shipment_tracks, dict):
+        shipment_tracks = [shipment_tracks]
+    if not shipment_tracks:
+        out["status"] = (
+            tracking_data.get("current_status")
+            or data.get("current_status")
+            or ""
+        )
+        out["eta"] = (
+            tracking_data.get("etd")
+            or tracking_data.get("eta")
+            or tracking_data.get("estimated_delivery_date")
+            or ""
+        )
+        out["activities"] = (
+            tracking_data.get("shipment_track_activities")
+            or tracking_data.get("activities")
+            or tracking_data.get("tracking_history")
+            or []
+        )
+        return out
+    first = shipment_tracks[0] if shipment_tracks else {}
+    out["status"] = (
+        first.get("current_status")
+        or first.get("status")
+        or tracking_data.get("current_status")
+        or ""
+    )
+    out["eta"] = (
+        first.get("etd")
+        or first.get("eta")
+        or first.get("estimated_delivery_date")
+        or ""
+    )
+    raw_activities = (
+        first.get("shipment_track_activities")
+        or first.get("activities")
+        or first.get("tracking_history")
+        or []
+    )
+    for a in raw_activities:
+        if isinstance(a, dict):
+            out["activities"].append({
+                "date": a.get("date") or a.get("event_date") or a.get("timestamp") or "",
+                "activity": a.get("activity") or a.get("status") or a.get("description") or "",
+                "location": a.get("location") or a.get("city") or "",
+            })
+        else:
+            out["activities"].append({"date": "", "activity": str(a), "location": ""})
+    return out
+
+
+class OrderShipmentRefreshTrackingView(StaffRequiredMixin, View):
+    """POST: fetch latest tracking from Shiprocket by AWB and update shipment."""
+
+    def post(self, request, order_number):
+        order = get_object_or_404(Order, order_number=order_number)
+        shipment = getattr(order, "shipment", None)
+
+        if not shipment:
+            messages.error(request, "No shipment found for this order.")
+            return redirect("admin_panel:order_detail", order_number=order_number)
+
+        if shipment.is_cancelled:
+            messages.error(request, "Cannot refresh tracking for a cancelled shipment.")
+            return redirect("admin_panel:order_detail", order_number=order_number)
+
+        if not shipment.awb_code:
+            messages.error(request, "No AWB code available to track.")
+            return redirect("admin_panel:order_detail", order_number=order_number)
+
+        try:
+            data = shiprocket_service.track_shipment(shipment.awb_code)
+            tracking = _normalize_tracking_response(data)
+            shipment.current_status = tracking.get("status") or shipment.current_status
+            shipment.tracking_data = {
+                "status": tracking.get("status"),
+                "eta": tracking.get("eta"),
+                "activities": tracking.get("activities"),
+                "awb_code": shipment.awb_code,
+                "order_id": order_number,
+            }
+            shipment.save(update_fields=["current_status", "tracking_data", "updated_at"])
+            messages.success(request, "Tracking data updated from Shiprocket.")
+        except ShiprocketAPIError as exc:
+            messages.error(request, f"Failed to fetch tracking: {exc}")
+        except Exception as exc:
+            logger.error(
+                "Unexpected error refreshing tracking for order %s: %s",
+                order_number,
+                exc,
+                exc_info=True,
+            )
+            messages.error(request, "An error occurred while refreshing tracking.")
+
         return redirect("admin_panel:order_detail", order_number=order_number)
 
 
@@ -1138,74 +1282,78 @@ class ReviewListView(StaffRequiredMixin, TemplateView):
         # Product aggregates are kept in sync by Review model signals
         return redirect("admin_panel:review_list")
 
-class CreateShipmentView(StaffRequiredMixin, View):
+class ShipmentRetryView(StaffRequiredMixin, View):
     def post(self, request, order_number):
         order = get_object_or_404(Order, order_number=order_number)
+        shipment = getattr(order, "shipment", None)
 
-        # Don't create duplicate shipments
-        if order.shiprocket_order_id:
-            messages.warning(request, "Shipment already created for this order.")
+        if order.status == Order.Status.DELIVERED:
+            messages.error(request, "Cannot recreate shipment for a delivered order.")
             return redirect("admin_panel:order_detail", order_number=order_number)
 
+        if shipment is None:
+            shipment = Shipment.objects.create(order=order, current_status="pending_creation")
+
         try:
-            # Step 1: Create order on Shiprocket
-            sr_order = shiprocket.create_order(order)
-            order.shiprocket_order_id = str(sr_order.get("order_id", ""))
-            order.shiprocket_shipment_id = str(sr_order.get("shipment_id", ""))
-            order.save(update_fields=["shiprocket_order_id", "shiprocket_shipment_id"])
-
-            # Step 2: Generate AWB
-            try:
-                awb_data = shiprocket.generate_awb(order.shiprocket_shipment_id)
-                logger.info(f"AWB response: {awb_data}")
-            except Exception as awb_err:
-                logger.error(f"AWB error detail: {awb_err.response.text if hasattr(awb_err, 'response') else awb_err}")
-                raise
-            awb_code = (
-                awb_data.get("response", {})
-                .get("data", {})
-                .get("awb_code", "")
+            create_shipment_for_order(order, shipment)
+            messages.success(request, "Shipment successfully (re)created with Shiprocket.")
+        except ShiprocketAPIError as exc:
+            shipment.error_log = str(exc)
+            shipment.current_status = "error"
+            shipment.save(update_fields=["error_log", "current_status", "updated_at"])
+            messages.error(request, f"Shiprocket error while creating shipment: {exc}")
+        except Exception as exc:
+            shipment.error_log = str(exc)
+            shipment.current_status = "error"
+            shipment.save(update_fields=["error_log", "current_status", "updated_at"])
+            logger.error(
+                "Unexpected error in ShipmentRetryView for order %s: %s",
+                order_number,
+                exc,
+                exc_info=True,
             )
-            courier_name = (
-                awb_data.get("response", {})
-                .get("data", {})
-                .get("courier_name", "")
-            )
-            order.awb_code = awb_code
-            order.courier_name = courier_name
-            order.save(update_fields=["awb_code", "courier_name"])
-
-            # Step 3: Request Pickup
-            shiprocket.request_pickup(order.shiprocket_shipment_id)
-
-            # Step 4: Get Label
-            label_data = shiprocket.get_label(order.shiprocket_shipment_id)
-            order.label_url = label_data.get("label_url", "")
-            order.status = Order.Status.SHIPPED
-            order.save(update_fields=["label_url", "status"])
-
-            messages.success(
-                request,
-                f"Shipment created! AWB: {awb_code} | Courier: {courier_name}"
-            )
-
-        except Exception as e:
-            logger.error(f"Shiprocket error for order {order_number}: {e}")
-            messages.error(request, f"Shiprocket error: {str(e)}")
+            messages.error(request, "Unexpected error while creating shipment.")
 
         return redirect("admin_panel:order_detail", order_number=order_number)
 
 
-class TrackShipmentView(StaffRequiredMixin, View):
-    def get(self, request, order_number):
+class ShipmentCancelView(StaffRequiredMixin, View):
+    def post(self, request, order_number):
         order = get_object_or_404(Order, order_number=order_number)
+        shipment = getattr(order, "shipment", None)
 
-        if not order.awb_code:
-            return JsonResponse({"error": "No AWB code found for this order."}, status=400)
+        if not shipment:
+            messages.error(request, "No shipment found for this order.")
+            return redirect("admin_panel:order_detail", order_number=order_number)
+
+        if order.status == Order.Status.DELIVERED:
+            messages.error(request, "Cannot cancel a delivered order.")
+            return redirect("admin_panel:order_detail", order_number=order_number)
+
+        if shipment.is_cancelled:
+            messages.info(request, "Shipment is already marked as cancelled.")
+            return redirect("admin_panel:order_detail", order_number=order_number)
 
         try:
-            tracking_data = shiprocket.track_shipment(order.awb_code)
-            return JsonResponse({"success": True, "data": tracking_data})
-        except Exception as e:
-            logger.error(f"Tracking error for order {order_number}: {e}")
-            return JsonResponse({"error": str(e)}, status=500)
+            shiprocket_service.cancel_shipment(shipment)
+            shipment.is_cancelled = True
+            shipment.cancelled_at = timezone.now()
+            shipment.current_status = "cancelled"
+            shipment.save(update_fields=["is_cancelled", "cancelled_at", "current_status", "updated_at"])
+
+            order.status = Order.Status.CANCELLED
+            order.save(update_fields=["status", "updated_at"])
+
+            messages.success(request, "Shipment cancelled and order marked as cancelled.")
+        except ShiprocketAPIError as exc:
+            messages.error(request, f"Failed to cancel shipment in Shiprocket: {exc}")
+        except Exception as exc:
+            logger.error(
+                "Unexpected error cancelling shipment for order %s: %s",
+                order_number,
+                exc,
+                exc_info=True,
+            )
+            messages.error(request, "Unexpected error while cancelling shipment.")
+
+        return redirect("admin_panel:order_detail", order_number=order_number)

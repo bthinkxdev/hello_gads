@@ -1835,3 +1835,82 @@ html, body {
     padding-left: 1.25rem;
 }
 
+/* ============================================
+   PRODUCT LISTING — TABLE ACTION BUTTONS
+   Compact icon-only buttons for desktop rows
+   ============================================ */
+
+.tbl-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.tbl-actions .btn,
+.tbl-actions .btn-sm {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+}
+
+.btn-ghost-danger {
+    background: transparent;
+    color: #9ca3af;
+    border: 1px solid #e5e7eb;
+}
+
+.btn-ghost-danger:hover {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+}
+
+.btn-ghost-danger:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ============================================
+   PRODUCT LISTING — HEADER COUNT BADGE
+   ============================================ */
+
+.product-listing-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.product-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 22px;
+    padding: 0 0.5rem;
+    background: var(--gray-200);
+    color: var(--gray-700);
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 11px;
+}
+
+/* Adjust actions column width: 3 icon buttons = 120px max */
+.product-listing-thead,
+.product-row {
+    grid-template-columns: minmax(260px, 2fr) 120px 100px 100px 120px;
+}
+
+@media (max-width: 1024px) {
+    .product-listing-thead,
+    .product-row {
+        grid-template-columns: minmax(200px, 1fr) 100px 80px 90px 100px;
+    }
+}
+

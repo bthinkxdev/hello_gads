@@ -12,6 +12,10 @@ import secrets
 import string
 import random
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class TimeStampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -207,6 +211,11 @@ class Variant(TimeStampedModel):
     )
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     stock_quantity = models.PositiveIntegerField(default=0)
+    # Physical dimensions for shipping (weight in kg, dimensions in cm)
+    weight = models.DecimalField(max_digits=6, decimal_places=3, default=0, validators=[MinValueValidator(0)])
+    length = models.DecimalField(max_digits=6, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    breadth = models.DecimalField(max_digits=6, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    height = models.DecimalField(max_digits=6, decimal_places=2, default=0, validators=[MinValueValidator(0)])
     sku = models.CharField(max_length=64, unique=True, blank=True, null=True)
     is_active = models.BooleanField(default=True, db_index=True)
     display_order = models.PositiveIntegerField(default=0, db_index=True)
@@ -371,12 +380,6 @@ class Order(TimeStampedModel):
     shipping = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     total = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     address = models.ForeignKey(Address, on_delete=models.PROTECT, related_name="orders")
-    # Shiprocket
-    shiprocket_order_id = models.CharField(max_length=100, blank=True, null=True)
-    shiprocket_shipment_id = models.CharField(max_length=100, blank=True, null=True)
-    awb_code = models.CharField(max_length=100, blank=True, null=True)
-    courier_name = models.CharField(max_length=100, blank=True, null=True)
-    label_url = models.URLField(blank=True, null=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -428,6 +431,36 @@ class Payment(TimeStampedModel):
         self.status = self.Status.PAID
         self.processed_at = timezone.now()
         self.save(update_fields=["status", "processed_at"])
+
+
+class Shipment(TimeStampedModel):
+    """
+    Outbound shipment metadata for an order (Shiprocket integration).
+    Kept separate from Order for clearer lifecycle and error handling.
+    """
+
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name="shipment")
+    shiprocket_order_id = models.CharField(max_length=100, blank=True, null=True)
+    shiprocket_shipment_id = models.CharField(max_length=100, blank=True, null=True)
+    awb_code = models.CharField(max_length=100, blank=True, null=True)
+    courier_name = models.CharField(max_length=100, blank=True, null=True)
+    label_url = models.URLField(blank=True, null=True)
+    current_status = models.CharField(max_length=100, blank=True, null=True)
+    tracking_data = models.JSONField(blank=True, null=True, default=dict)
+    is_cancelled = models.BooleanField(default=False, db_index=True)
+    cancelled_at = models.DateTimeField(blank=True, null=True)
+    error_log = models.TextField(blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["awb_code"]),
+            models.Index(fields=["shiprocket_order_id"]),
+            models.Index(fields=["shiprocket_shipment_id"]),
+            models.Index(fields=["is_cancelled"]),
+        ]
+
+    def __str__(self):
+        return f"Shipment for {self.order.order_number}"
 
 
 class ContactMessage(TimeStampedModel):
@@ -677,3 +710,39 @@ def review_post_delete(sender, instance: Review, **kwargs):
     Support physical deletions as well (e.g. if ever used).
     """
     _recompute_product_rating(instance.product_id)
+
+
+@receiver(post_save, sender=Order)
+def auto_create_shipment_on_confirmed(sender, instance: Order, created: bool, update_fields=None, **kwargs):
+    """
+    When an order is marked CONFIRMED, automatically create a Shipment and
+    trigger Shiprocket fulfillment if a shipment does not already exist.
+    """
+    try:
+        if instance.status != Order.Status.CONFIRMED:
+            return
+        # Only react when status was part of the save or on generic saves
+        if not created and update_fields is not None and "status" not in update_fields:
+            return
+
+        if hasattr(instance, "shipment"):
+            # Shipment already exists; do not create another
+            return
+
+        from .services.shiprocket_service import create_shipment_for_order, ShiprocketAPIError
+
+        shipment = Shipment.objects.create(order=instance, current_status="pending_creation")
+        try:
+            create_shipment_for_order(instance, shipment)
+        except ShiprocketAPIError as exc:
+            shipment.error_log = str(exc)
+            shipment.current_status = "error"
+            shipment.save(update_fields=["error_log", "current_status", "updated_at"])
+            logger.error("Shiprocket shipment creation failed for order %s: %s", instance.order_number, exc, exc_info=True)
+        except Exception as exc:
+            shipment.error_log = str(exc)
+            shipment.current_status = "error"
+            shipment.save(update_fields=["error_log", "current_status", "updated_at"])
+            logger.error("Unexpected error during shipment creation for order %s: %s", instance.order_number, exc, exc_info=True)
+    except Exception as outer_exc:
+        logger.error("auto_create_shipment_on_confirmed failed for order %s: %s", getattr(instance, "order_number", None), outer_exc, exc_info=True)

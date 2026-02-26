@@ -258,6 +258,19 @@ class ProductAttributeValueDeleteApiView(View):
 
 # --- Variants ---
 
+def _decimal_from_data(data, key, default=0):
+    """Parse a non-negative decimal from JSON data. Returns default if missing/invalid."""
+    from decimal import Decimal
+    val = data.get(key)
+    if val is None or val == "":
+        return default if default is not None else Decimal("0")
+    try:
+        d = Decimal(str(val).strip())
+        return d if d >= 0 else (default if default is not None else Decimal("0"))
+    except Exception:
+        return default if default is not None else Decimal("0")
+
+
 def _variant_payload(v):
     """Serialize variant for JSON (with attribute_values and images)."""
     values = [
@@ -276,6 +289,10 @@ def _variant_payload(v):
         "sku": v.sku or "",
         "is_active": v.is_active,
         "display_order": v.display_order,
+        "weight": str(getattr(v, "weight", 0) or 0),
+        "length": str(getattr(v, "length", 0) or 0),
+        "breadth": str(getattr(v, "breadth", 0) or 0),
+        "height": str(getattr(v, "height", 0) or 0),
         "images": images,
     }
 
@@ -360,6 +377,10 @@ class VariantCreateApiView(View):
         except (TypeError, ValueError):
             display_order = product.variants.count()
         is_active = data.get("is_active", True)
+        weight = _decimal_from_data(data, "weight", 0)
+        length = _decimal_from_data(data, "length", 0)
+        breadth = _decimal_from_data(data, "breadth", 0)
+        height = _decimal_from_data(data, "height", 0)
         with transaction.atomic():
             v = Variant.objects.create(
                 product=product,
@@ -368,6 +389,10 @@ class VariantCreateApiView(View):
                 sku=sku,
                 display_order=display_order,
                 is_active=bool(is_active),
+                weight=weight,
+                length=length,
+                breadth=breadth,
+                height=height,
             )
             v.attribute_values.set(ProductAttributeValue.objects.filter(id__in=attribute_value_ids))
         v = Variant.objects.prefetch_related("attribute_values__attribute", "images").get(pk=v.pk)
@@ -410,6 +435,11 @@ class VariantUpdateApiView(View):
                 pass
         if "is_active" in data:
             update_kw["is_active"] = bool(data["is_active"])
+        for field in ("weight", "length", "breadth", "height"):
+            if field in data:
+                val = _decimal_from_data(data, field, None)
+                if val is not None and val >= 0:
+                    update_kw[field] = val
         attribute_value_ids = data.get("attribute_value_ids")
         if attribute_value_ids is not None:
             if not isinstance(attribute_value_ids, list):

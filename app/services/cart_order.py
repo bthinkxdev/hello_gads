@@ -8,7 +8,7 @@ from django.db.models import F
 from django.template.loader import render_to_string
 from django.utils.crypto import get_random_string
 
-from .models import (
+from ..models import (
     Address,
     Cart,
     CartItem,
@@ -38,7 +38,7 @@ def send_order_notification_email(order, request=None):
         admin_emails = getattr(settings, 'ADMIN_NOTIFICATION_EMAILS', [])
         if not admin_emails:
             return False
-        
+
         try:
             if request:
                 order_url = request.build_absolute_uri(f'/dashboard/orders/{order.order_number}/')
@@ -54,20 +54,20 @@ def send_order_notification_email(order, request=None):
                 payment_method = order.payment.get_method_display()
         except Exception:
             pass
-        
+
         context = {
             'order': order,
             'order_url': order_url,
             'payment_method': payment_method,
             'site_name': ' Hello Gads',
         }
-        
+
         try:
             html_message = render_to_string('admin/order_notification_email.html', context)
             plain_message = render_to_string('admin/order_notification_email.txt', context)
         except Exception:
             return False
-        
+
         try:
             send_mail(
                 subject=f'New Order #{order.order_number} - ₹{order.total}',
@@ -114,7 +114,6 @@ class CartService:
             cart, _ = Cart.objects.get_or_create(user=user, status=Cart.Status.ACTIVE)
             return cart
         session_key = cls._ensure_session_key(request)
-        # Guest: only use ACTIVE cart with this session_key and no user (no duplicate per session)
         cart = Cart.objects.filter(
             session_key=session_key, status=Cart.Status.ACTIVE, user__isnull=True
         ).first()
@@ -170,7 +169,6 @@ class CartService:
     def compute_totals(cart):
         try:
             subtotal = sum(item.line_total for item in cart.items.select_related("product"))
-            # Constant ₹80 delivery charge for all orders (any amount)
             FREE_SHIPPING_THRESHOLD = getattr(settings, "FREE_SHIPPING_ABOVE", 499)
             delivery_charge = getattr(settings, "FLAT_DELIVERY_CHARGE", 80)
             shipping = 0 if subtotal >= FREE_SHIPPING_THRESHOLD else delivery_charge
@@ -181,7 +179,6 @@ class CartService:
 
     @staticmethod
     def add_item(cart, variant, quantity):
-        """Add to cart. variant must be a Variant instance."""
         if not isinstance(variant, Variant):
             raise CartError("Invalid variant.")
         v = variant
@@ -258,12 +255,10 @@ class OrderService:
             if item.quantity > v.stock_quantity:
                 raise StockError(f"{item.product.name} is out of stock.")
 
-        # Handle address - either use existing or create snapshot (guest always uses new address)
         selected_address_id = form_data.get('selected_address')
         use_new_address = form_data.get('use_new_address', False)
 
         if selected_address_id and not use_new_address and user:
-            # Create snapshot of existing address
             try:
                 existing_address = Address.objects.get(pk=selected_address_id, user=user, is_snapshot=False)
                 address = Address.objects.create(
@@ -280,7 +275,6 @@ class OrderService:
             except Address.DoesNotExist:
                 raise CartError("Selected address not found.")
         else:
-            # Create new snapshot address
             address = Address.objects.create(
                 user=cart.user if cart.user else None,
                 full_name=form_data["full_name"],
@@ -328,14 +322,11 @@ class OrderService:
             amount=totals.total,
         )
 
-        # Only clear cart for COD. For Razorpay, clear after payment verification
         if clear_cart:
             cart.status = Cart.Status.ORDERED
             cart.save(update_fields=["status"])
             cart.items.all().delete()
 
-        # Send order notification email to admin/owner (non-blocking)
         send_order_notification_email_async(order)
 
         return order
-

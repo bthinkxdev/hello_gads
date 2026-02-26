@@ -1,84 +1,73 @@
-{% extends "admin/base.html" %}
+{% extends "admin_panel/base.html" %}
 {% load static %}
 
 {% block title %}{{ form_title }}{% endblock %}
 {% block page_title %}{{ form_title }}{% endblock %}
 
 {% block extra_css %}
-<style>
-    .product-create-wrapper { max-width: 720px; margin: 0 auto; padding: 0 1rem 2rem; }
-    .create-section { padding: 1rem 0 1.5rem 0; margin-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb; }
-    .section-heading { margin: 0 0 0.35rem 0; font-size: 1rem; font-weight: 600; color: #111827; display: flex; align-items: center; gap: 0.5rem; }
-    .section-num { display: inline-flex; align-items: center; justify-content: center; width: 1.35rem; height: 1.35rem; border-radius: 50%; background: var(--primary); color: #fff; font-size: 0.75rem; font-weight: 700; }
-    .section-hint { font-size: 0.8rem; color: var(--text-muted, rgba(0,0,0,0.55)); margin: 0 0 0.85rem 0; }
-    .form-group { margin-bottom: 0.65rem; }
-    .form-label { display: block; margin-bottom: 0.25rem; font-weight: 600; color: #374151; font-size: 0.8125rem; }
-    .form-control { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9375rem; }
-    .form-control:focus { outline: none; border-color: var(--primary); }
-    .toggle-wrap { display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none; }
-    .toggle-wrap .toggle-input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
-    .toggle-track { position: relative; width: 44px; height: 24px; border-radius: 12px; background: #e2e8f0; border: 1px solid #cbd5e1; flex-shrink: 0; transition: background 0.2s, border-color 0.2s; }
-    .toggle-wrap.checked .toggle-track { background: var(--primary); border-color: var(--primary-dark); }
-    .toggle-knob { position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: transform 0.2s ease; }
-    .toggle-wrap.checked .toggle-knob { transform: translateX(20px); }
-    .toggle-label { font-weight: 500; color: #374151; font-size: 0.875rem; }
-    .toggle-status { font-size: 0.75rem; color: var(--text-muted, rgba(0,0,0,0.55)); min-width: 2.2em; }
-    .toggle-wrap.checked .toggle-status { color: var(--primary); font-weight: 500; }
-    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; }
-    .btn { padding: 0.5rem 0.9rem; font-weight: 600; border-radius: 6px; cursor: pointer; border: none; font-size: 0.875rem; }
-    .btn-primary { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: #fff; }
-    .btn-secondary { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
-    .btn-secondary:hover { background: #e5e7eb; }
-    .save-feedback { font-size: 0.75rem; margin-left: 0.5rem; }
-    .save-feedback.err { color: #dc2626; }
-    .action-loader-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.85); z-index: 10001; align-items: center; justify-content: center; }
-    .action-loader-overlay.is-active { display: flex; }
-    .action-loader-overlay .loader-spinner { width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: var(--primary); border-radius: 50%; animation: loader-spin 0.8s linear infinite; }
-    .action-loader-overlay .loader-text { margin-top: 0.75rem; font-size: 0.875rem; color: var(--text-muted, rgba(0,0,0,0.55)); }
-    @keyframes loader-spin { to { transform: rotate(360deg); } }
-    .toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 10000; display: flex; flex-direction: column; gap: 0.5rem; max-width: 320px; pointer-events: none; }
-    .toast { padding: 0.65rem 1rem; border-radius: 8px; font-size: 0.875rem; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: toast-in 0.25s ease; }
-    .toast.success { background: #059669; color: #fff; }
-    .toast.error { background: #dc2626; color: #fff; }
-    @keyframes toast-in { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
-    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
-</style>
+<link rel="stylesheet" href="{% static 'css/admin_product_edit.css' %}">
 {% endblock %}
 
 {% block content %}
-<div class="product-create-wrapper" id="create-wrapper"
+<div class="product-edit-wrapper has-pf-actions" id="create-wrapper"
      data-url-create-basic="{% url 'admin_panel:product_create_basic' %}"
      data-url-edit="{% url 'admin_panel:product_edit' 0 %}">
     {% csrf_token %}
 
-    <div class="create-section">
-        <h4 class="section-heading"><span class="section-num">1</span> Basic details</h4>
-        <p class="section-hint">Category, name, slug, description, brand and flags. Click <strong>Create product</strong> to save, then add attributes and variants on the edit page.</p>
+    <!-- ── SECTION 1: Basic Information ── -->
+    <div class="edit-section">
+        <h4 class="section-heading">
+            <span class="section-num">1</span> Basic information
+        </h4>
+        <p class="section-hint">
+            Enter the category, name, and core details. Click <strong>Create product</strong> to save,
+            then add attributes and variants on the edit page.
+        </p>
+
         <div class="grid-2">
             <div class="form-group">
-                <label class="form-label">Category *</label>
+                <label class="form-label">Category <span class="req">*</span></label>
                 {{ basic_form.category }}
             </div>
+            <div class="form-group">
+                <label class="form-label" for="basic-brand">Brand</label>
+                <input type="text" class="form-control" id="basic-brand" placeholder="e.g. Nike, Apple, Samsung">
+            </div>
         </div>
+
         <div class="grid-2">
             <div class="form-group">
-                <label class="form-label">Name *</label>
-                <input type="text" class="form-control" id="basic-name" placeholder="Product name">
+                <label class="form-label" for="basic-name">Product name <span class="req">*</span></label>
+                <input type="text" class="form-control" id="basic-name" placeholder="Enter product name">
             </div>
             <div class="form-group">
-                <label class="form-label">Slug</label>
-                <input type="text" class="form-control" id="basic-slug" placeholder="Auto-generated if empty">
+                <label class="form-label" for="basic-slug">Slug</label>
+                <input type="text" class="form-control" id="basic-slug" placeholder="auto-generated-if-empty">
+                <span class="form-hint">Leave blank to auto-generate from name</span>
             </div>
         </div>
+
         <div class="form-group">
-            <label class="form-label">Description</label>
-            <textarea class="form-control" id="basic-description" rows="4" placeholder="Description"></textarea>
+            <label class="form-label" for="basic-description">Description</label>
+            <textarea class="form-control" id="basic-description" rows="5"
+                      placeholder="Describe the product — features, materials, sizing, etc."></textarea>
         </div>
-        <div class="form-group">
-            <label class="form-label">Brand</label>
-            <input type="text" class="form-control" id="basic-brand" placeholder="Brand">
-        </div>
-        <div class="grid-2" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
+    </div>
+
+    <!-- ── SECTION 2: Flags & Visibility ── -->
+    <div class="edit-section">
+        <h4 class="section-heading">
+            <span class="section-num">2</span> Flags &amp; visibility
+        </h4>
+        <p class="section-hint">Control how this product appears in your store listings.</p>
+
+        <div class="toggle-grid">
+            <label class="toggle-wrap checked" for="basic-is_active">
+                <input type="checkbox" class="toggle-input" id="basic-is_active" checked>
+                <span class="toggle-track"><span class="toggle-knob"></span></span>
+                <span class="toggle-label">Active</span>
+                <span class="toggle-status" data-on="On" data-off="Off">On</span>
+            </label>
             <label class="toggle-wrap" for="basic-is_featured">
                 <input type="checkbox" class="toggle-input" id="basic-is_featured">
                 <span class="toggle-track"><span class="toggle-knob"></span></span>
@@ -97,27 +86,31 @@
                 <span class="toggle-label">Deal of day</span>
                 <span class="toggle-status" data-on="On" data-off="Off">Off</span>
             </label>
-            <label class="toggle-wrap checked" for="basic-is_active">
-                <input type="checkbox" class="toggle-input" id="basic-is_active" checked>
-                <span class="toggle-track"><span class="toggle-knob"></span></span>
-                <span class="toggle-label">Active</span>
-                <span class="toggle-status" data-on="On" data-off="Off">On</span>
-            </label>
         </div>
-        <button type="button" id="btn-create-basic" class="btn btn-primary">Create product</button>
-        <span id="basic-feedback" class="save-feedback"></span>
     </div>
 
-    <div style="margin-top: 1.5rem;">
-        <a href="{% url 'admin_panel:product_list' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Cancel</a>
+    <!-- ── FORM ACTIONS (desktop inline + mobile sticky) ── -->
+    <div class="pf-actions">
+        <a href="{% url 'admin_panel:product_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Cancel
+        </a>
+        <div class="pf-primary-actions">
+            <button type="button" id="btn-create-basic" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Create product
+            </button>
+            <span id="basic-feedback" class="save-feedback"></span>
+        </div>
     </div>
 
+    <!-- Loading overlay -->
     <div id="action-loader-create" class="action-loader-overlay" aria-hidden="true">
-        <div style="text-align:center;">
+        <div style="text-align: center;">
             <div class="loader-spinner"></div>
             <div class="loader-text">Saving…</div>
         </div>
     </div>
+
+    <!-- Toast container -->
     <div id="toast-container" class="toast-container" aria-live="polite"></div>
 </div>
 {% endblock %}

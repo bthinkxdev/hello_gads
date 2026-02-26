@@ -1,4 +1,4 @@
-{% extends "admin/base.html" %}
+{% extends "admin_panel/base.html" %}
 {% load static product_filters %}
 
 {% block title %}Order {{ order.order_number }}{% endblock %}
@@ -120,42 +120,122 @@
     </div>
 </div>
 
-<!-- Shiprocket Shipment -->
+<!-- Shipment -->
 <div class="card mt-3">
-    <div class="card-header">
-        <h3 class="card-title">Shipment</h3>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h3 class="card-title mb-0">Shipment</h3>
+        {% if shipment %}
+            <span class="badge {% if shipment.is_cancelled %}badge-danger{% elif order.status == 'delivered' %}badge-success{% else %}badge-secondary{% endif %}">
+                {{ shipment.current_status|default:"Pending" }}
+            </span>
+        {% endif %}
     </div>
     <div class="card-body">
-        {% if order.shiprocket_order_id %}
+        {% if shipment %}
             <div class="order-detail-info-row">
                 <span class="order-detail-info-label">Shiprocket Order ID</span>
-                <span class="order-detail-info-value">{{ order.shiprocket_order_id }}</span>
+                <span class="order-detail-info-value">{{ shipment.shiprocket_order_id|default:"—" }}</span>
+            </div>
+            <div class="order-detail-info-row">
+                <span class="order-detail-info-label">Shipment ID</span>
+                <span class="order-detail-info-value">{{ shipment.shiprocket_shipment_id|default:"—" }}</span>
             </div>
             <div class="order-detail-info-row">
                 <span class="order-detail-info-label">AWB Code</span>
-                <span class="order-detail-info-value">{{ order.awb_code }}</span>
+                <span class="order-detail-info-value">
+                    {{ shipment.awb_code|default:"—" }}
+                    {% if shipment.awb_code %}
+                    <a href="https://www.shiprocket.in/shipment-tracking/?awb={{ shipment.awb_code }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm" aria-label="Track on Shiprocket">
+                        <i class="fas fa-external-link-alt"></i> Track order
+                    </a>
+                    {% endif %}
+                </span>
             </div>
             <div class="order-detail-info-row">
                 <span class="order-detail-info-label">Courier</span>
-                <span class="order-detail-info-value">{{ order.courier_name }}</span>
+                <span class="order-detail-info-value">{{ shipment.courier_name|default:"—" }}</span>
             </div>
-            {% if order.label_url %}
+            <div class="order-detail-info-row">
+                <span class="order-detail-info-label">Last Tracking Update</span>
+                <span class="order-detail-info-value">
+                    {% if shipment.updated_at %}
+                        {{ shipment.updated_at|date:"d M, Y - h:i A" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </span>
+            </div>
+            {% if shipment.tracking_data and shipment.tracking_data.eta %}
+            <div class="order-detail-info-row">
+                <span class="order-detail-info-label">Estimated Delivery</span>
+                <span class="order-detail-info-value">{{ shipment.tracking_data.eta }}</span>
+            </div>
+            {% endif %}
+            {% if shipment.label_url %}
             <div class="order-detail-info-row">
                 <span class="order-detail-info-label">Shipping Label</span>
-                <a href="{{ order.label_url }}" target="_blank" class="btn btn-secondary btn-sm">
+                <a href="{{ shipment.label_url }}" target="_blank" class="btn btn-secondary btn-sm">
                     <i class="fas fa-download"></i> Download Label
                 </a>
             </div>
             {% endif %}
+            {% if shipment.error_log %}
+            <div class="order-detail-info-row">
+                <span class="order-detail-info-label">Last Error</span>
+                <span class="order-detail-info-value" style="white-space: pre-wrap; color:#b71c1c;">
+                    {{ shipment.error_log|truncatechars:300 }}
+                </span>
+            </div>
+            {% endif %}
+            {% if shipment.tracking_data and shipment.tracking_data.activities %}
+            <div class="order-detail-tracking-timeline mt-3">
+                <h4 class="order-detail-section-title">Tracking Timeline</h4>
+                <ul class="order-detail-timeline-list">
+                    {% for activity in shipment.tracking_data.activities %}
+                    <li class="order-detail-timeline-item">
+                        <span class="order-detail-timeline-date">{{ activity.date|default:activity.event_date|default:"" }}</span>
+                        <span class="order-detail-timeline-text">{{ activity.activity|default:activity.status|default:"" }}</span>
+                        {% if activity.location %}
+                        <span class="order-detail-timeline-location text-muted"> — {{ activity.location }}</span>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            <div class="mt-3 d-flex flex-wrap gap-2">
+                {% if not shipment.is_cancelled and order.status != 'delivered' %}
+                <form method="post" action="{% url 'admin_panel:order_shipment_cancel' order.order_number %}"
+                      onsubmit="return confirm('Cancel shipment for order {{ order.order_number }}?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="fas fa-ban"></i> Cancel Shipment
+                    </button>
+                </form>
+                {% endif %}
+                {% if order.status != 'delivered' and not shipment.is_cancelled %}
+                <form method="post" action="{% url 'admin_panel:order_shipment_retry' order.order_number %}"
+                      onsubmit="return confirm('Retry shipment creation for order {{ order.order_number }}?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-sync-alt"></i> Retry Shipment
+                    </button>
+                </form>
+                {% endif %}
+                {% if shipment.awb_code and not shipment.is_cancelled %}
+                <form method="post" action="{% url 'admin_panel:order_shipment_refresh_tracking' order.order_number %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-sync"></i> Refresh tracking
+                    </button>
+                </form>
+                {% endif %}
+            </div>
         {% else %}
-            <p style="color: #888; margin-bottom: 1rem;">No shipment created yet.</p>
-            <form method="post" action="{% url 'admin_panel:order_create_shipment' order.order_number %}">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-primary"
-                    onclick="return confirm('Create shipment for order {{ order.order_number }}?')">
-                    <i class="fas fa-truck"></i> Create Shipment via Shiprocket
-                </button>
-            </form>
+            <p style="color: #888; margin-bottom: 1rem;">
+                No shipment created yet. A shipment will be created automatically when the order is marked as
+                <strong>Confirmed</strong>.
+            </p>
         {% endif %}
     </div>
 </div>

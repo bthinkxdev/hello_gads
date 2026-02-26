@@ -74,8 +74,9 @@ urlpatterns = [
     path("orders/<slug:order_number>/", admin_views.OrderDetailView.as_view(), name="order_detail"),
     path("orders/<slug:order_number>/invoice/", admin_views.OrderInvoiceView.as_view(), name="order_invoice"),
     path("orders/<slug:order_number>/update-status/", admin_views.OrderUpdateStatusView.as_view(), name="order_update_status"),
-    path("orders/<slug:order_number>/create-shipment/", admin_views.CreateShipmentView.as_view(), name="order_create_shipment"),
-    path("orders/<slug:order_number>/track/", admin_views.TrackShipmentView.as_view(), name="order_track"),
+    path("orders/<slug:order_number>/shipment/retry/", admin_views.ShipmentRetryView.as_view(), name="order_shipment_retry"),
+    path("orders/<slug:order_number>/shipment/cancel/", admin_views.ShipmentCancelView.as_view(), name="order_shipment_cancel"),
+    path("orders/<slug:order_number>/shipment/refresh-tracking/", admin_views.OrderShipmentRefreshTrackingView.as_view(), name="order_shipment_refresh_tracking"),
 
     # Messages
     path("messages/", admin_views.MessageListView.as_view(), name="message_list"),

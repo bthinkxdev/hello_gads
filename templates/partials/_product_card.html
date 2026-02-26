@@ -1,0 +1,67 @@
+{% load static %}{% load product_filters %}
+{% with v=product.primary_variant %}
+{% if v %}
+<div class="product-card">
+    <div class="product-img-wrap">
+        {% if product.is_bestseller %}
+            <span class="product-badge badge-sale">Best Seller</span>
+        {% elif product.is_deal_of_day %}
+            <span class="product-badge badge-new">Deal of the Day</span>
+        {% elif product.is_featured %}
+            <span class="product-badge badge-new">Featured</span>
+        {% endif %}
+        <a href="{% url 'store:product_detail' product.slug %}?variant={{ v.id }}">
+            {% with imgs=v.images.all %}
+                {% if imgs %}
+                    <img src="{{ imgs.0.image.url }}" alt="{{ product.name }}" loading="lazy">
+                {% else %}
+                    <img src="{% static 'img/product-1.png' %}" alt="{{ product.name }}" loading="lazy">
+                {% endif %}
+            {% endwith %}
+        </a>
+        <button type="button"
+                class="product-wishlist js-wishlist-toggle {% if v.id in wishlist_variant_ids %}in-wishlist{% endif %}"
+                data-variant-id="{{ v.id }}"
+                title="Add to Wishlist">
+            <i class="far fa-heart"></i>
+        </button>
+        <a href="{% url 'store:product_detail' product.slug %}?variant={{ v.id }}"
+           class="product-quick-add">
+            View Detail <i class="fas fa-arrow-right ms-1"></i>
+        </a>
+    </div>
+    <div class="product-body">
+        <div class="product-category">{{ product.category.name|default:"" }}</div>
+        <a href="{% url 'store:product_detail' product.slug %}?variant={{ v.id }}" class="text-decoration-none">
+            <h3 class="product-name">{{ product.name }}</h3>
+        </a>
+
+        <div class="product-price">
+            <span class="price-current">
+                ₹{{ product.lowest_price|default:v.price|floatformat:0 }}
+            </span>
+        </div>
+
+        {% if product.total_reviews %}
+        <div class="product-rating">
+            <span class="rating-value">{{ product.average_rating|floatformat:1 }}</span>
+            <span class="rating-stars">★</span>
+            <span class="rating-count">({{ product.total_reviews }})</span>
+        </div>
+        {% endif %}
+
+        <form method="post"
+              action="{% url 'store:cart_add' %}"
+              class="product-add-form d-inline-block w-100">
+            {% csrf_token %}
+            <input type="hidden" name="product_id" value="{{ product.id }}">
+            <input type="hidden" name="variant_id" value="{{ v.id }}">
+            <input type="hidden" name="quantity" value="1">
+            <button type="submit" class="product-cta w-100 border-0">
+                Add to Cart
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endwith %}

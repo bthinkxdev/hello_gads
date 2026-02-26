@@ -419,6 +419,49 @@
     margin-bottom: 0.75rem;
     color: var(--gray-800);
 }
+.order-detail-info-value .btn-sm {
+    margin-left: 0.5rem;
+    vertical-align: middle;
+}
+.order-detail-tracking-timeline {
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--gray-200);
+}
+.order-detail-timeline-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.order-detail-timeline-item {
+    padding: 0.5rem 0;
+    border-left: 2px solid var(--gray-300);
+    padding-left: 1rem;
+    margin-left: 0.25rem;
+    position: relative;
+}
+.order-detail-timeline-item::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: 1rem;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+}
+.order-detail-timeline-date {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    margin-bottom: 0.15rem;
+}
+.order-detail-timeline-text {
+    font-size: 0.9rem;
+    color: var(--gray-800);
+}
+.order-detail-timeline-location {
+    font-size: 0.85rem;
+}
 .order-detail-phone-row {
     display: flex;
     align-items: center;

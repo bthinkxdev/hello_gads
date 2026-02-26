@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import IntegrityError, transaction
-from django.db.models import Prefetch, Q, F, Sum, Count
+from django.db.models import Prefetch, Q, F, Sum, Count, Min
 from django.http import Http404, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -31,6 +31,7 @@ from .models import (
     Variant,
     Cart,
     Wishlist,
+    Shipment,
 )
 from .services import CartError, CartService, OrderService, StockError
 
@@ -166,32 +167,117 @@ class HomeView(TemplateView):
     def get_context_data(self, **kwargs):
         try:
             context = super().get_context_data(**kwargs)
-            context["categories"] = Category.objects.filter(is_active=True)
-            variant_qs = Variant.objects.filter(is_active=True, stock_quantity__gt=0).prefetch_related("images").order_by("display_order", "id")
             today = timezone.now().date()
-            deal_qs = (
-                Product.objects.active()
-                .filter(is_deal_of_day=True)
-                .select_related("category")
-                .prefetch_related(Prefetch("variants", queryset=variant_qs))
+
+            # --- Shop by Category (only categories with at least one sellable product) ---
+            shop_categories_qs = (
+                Category.objects.filter(
+                    is_active=True,
+                    products__is_active=True,
+                    products__variants__is_active=True,
+                    products__variants__stock_quantity__gt=0,
+                )
+                .distinct()
+                .order_by("name")[:8]
             )
+            context["shop_categories"] = list(shop_categories_qs)
+
+            # --- Base product queryset for homepage sections (sellable products only) ---
+            sellable_variants_qs = (
+                Variant.objects.filter(
+                    is_active=True,
+                    stock_quantity__gt=0,
+                )
+                .prefetch_related("images")
+                .order_by("display_order", "id")
+            )
+
+            base_products_qs = (
+                Product.objects.available()
+                .select_related("category")
+                .prefetch_related(
+                    Prefetch(
+                        "variants",
+                        queryset=sellable_variants_qs,
+                        to_attr="sellable_variants",
+                    )
+                )
+            )
+
+            def _build_product_cards(qs, limit):
+                """
+                Attach primary_variant and lowest_price to each Product using prefetched variants.
+                Returns a list of products limited to `limit`.
+                """
+                products = []
+                for product in qs[:limit]:
+                    variants = list(getattr(product, "sellable_variants", []) or [])
+                    if not variants:
+                        continue
+                    # Choose primary variant by lowest price, then display_order, then id
+                    primary_variant = min(
+                        variants,
+                        key=lambda v: (v.price, v.display_order, v.id),
+                    )
+                    product.primary_variant = primary_variant
+                    product.lowest_price = primary_variant.price
+                    products.append(product)
+                return products
+
+            # --- Deal of the Day ---
+            deal_qs = base_products_qs.filter(is_deal_of_day=True)
             deal_qs = deal_qs.filter(
                 Q(deal_of_day_start__isnull=True) | Q(deal_of_day_start__lte=today),
                 Q(deal_of_day_end__isnull=True) | Q(deal_of_day_end__gte=today),
-            )[:8]
-            context["deal_products"] = list(deal_qs)
-            context["featured_products"] = (
-                Product.objects.active()
-                .filter(is_featured=True)
-                .select_related("category")
-                .prefetch_related(Prefetch("variants", queryset=variant_qs))[:8]
+            ).order_by("-created_at")
+            deal_of_day_products = _build_product_cards(deal_qs, 8)
+            context["deal_of_day_products"] = deal_of_day_products
+            # Backwards compatibility (older templates may still expect this key)
+            context["deal_products"] = deal_of_day_products
+
+            # --- Best Sellers ---
+            bestseller_qs = base_products_qs.filter(is_bestseller=True).order_by(
+                "-created_at"
             )
-            context["bestseller_products"] = (
-                Product.objects.active()
-                .filter(is_bestseller=True)
-                .select_related("category")
-                .prefetch_related(Prefetch("variants", queryset=variant_qs))[:8]
+            context["bestseller_products"] = _build_product_cards(bestseller_qs, 8)
+
+            # --- New Arrivals ---
+            new_arrivals_qs = base_products_qs.order_by("-created_at")
+            context["new_arrival_products"] = _build_product_cards(
+                new_arrivals_qs, 8
             )
+
+            # --- Top Rated ---
+            top_rated_qs = base_products_qs.filter(
+                average_rating__gte=4,
+                total_reviews__gt=0,
+            ).order_by("-average_rating", "-total_reviews", "-created_at")
+            context["top_rated_products"] = _build_product_cards(top_rated_qs, 8)
+
+            # --- Budget Picks (₹499 and under, ordered by lowest variant price) ---
+            budget_qs = (
+                Product.objects.available()
+                .filter(variants__price__lte=499)
+                .annotate(min_price=Min("variants__price"))
+                .select_related("category")
+                .prefetch_related(
+                    Prefetch(
+                        "variants",
+                        queryset=sellable_variants_qs,
+                        to_attr="sellable_variants",
+                    )
+                )
+                .order_by("min_price", "-created_at")
+                .distinct()
+            )
+            context["budget_products"] = _build_product_cards(budget_qs, 8)
+
+            # --- Featured Collection ---
+            featured_qs = base_products_qs.filter(is_featured=True).order_by(
+                "-created_at"
+            )
+            context["featured_products"] = _build_product_cards(featured_qs, 8)
+
             active_banners = list(
                 Banner.objects.filter(is_active=True).order_by("display_order", "created_at")
             )
@@ -246,10 +332,14 @@ class HomeView(TemplateView):
             logger.error(f"Error in HomeView.get_context_data: {str(e)}", exc_info=True)
             context = super().get_context_data(**kwargs)
             context["active_page"] = "home"
+            context["shop_categories"] = []
             context["featured_products"] = []
+            context["deal_of_day_products"] = []
             context["deal_products"] = []
             context["bestseller_products"] = []
-            context["categories"] = []
+            context["new_arrival_products"] = []
+            context["top_rated_products"] = []
+            context["budget_products"] = []
             context["banners"] = []
             context["home_wishlist_variants"] = []
             context["home_wishlist_products"] = []
@@ -320,10 +410,15 @@ class ProductDetailView(DetailView):
                 "attributes__values",
                 Prefetch(
                     "variants",
-                    queryset=Variant.objects.filter(is_active=True).prefetch_related(
+                    queryset=Variant.objects.filter(
+                        is_active=True,
+                        stock_quantity__gt=0,
+                    )
+                    .prefetch_related(
                         "images",
                         "attribute_values__attribute",
-                    ).order_by("display_order", "id"),
+                    )
+                    .order_by("display_order", "id"),
                 ),
             )
         )
@@ -332,53 +427,100 @@ class ProductDetailView(DetailView):
         try:
             context = super().get_context_data(**kwargs)
             product = context["product"]
-            variants = list(product.variants.all())
+            # Only sellable variants (active + stock > 0) for detail page + selection tree
+            variants_qs = (
+                product.variants.filter(
+                    is_active=True,
+                    stock_quantity__gt=0,
+                )
+                .prefetch_related("attribute_values__attribute", "images")
+                .order_by("display_order", "id")
+            )
+            variants = list(variants_qs)
 
-            # Selected variant: from ?variant= or first in-stock
+            # Selected variant: from ?variant= (if sellable) or first sellable
             selected_variant = None
             variant_param = self.request.GET.get("variant")
             if variant_param:
                 try:
                     vid = int(variant_param)
+                except (TypeError, ValueError):
+                    vid = None
+                if vid:
                     for v in variants:
-                        if v.id == vid and (v.stock_quantity or 0) > 0:
+                        if v.id == vid:
                             selected_variant = v
                             break
-                except (TypeError, ValueError):
-                    pass
             if not selected_variant and variants:
-                for v in variants:
-                    if (v.stock_quantity or 0) > 0:
-                        selected_variant = v
-                        break
-                if not selected_variant:
-                    selected_variant = variants[0]
+                selected_variant = variants[0]
+
+            # Only consider attribute values that actually appear on at least one sellable variant
+            used_value_ids = set()
+            for v in variants:
+                for av_id in v.attribute_values.values_list("id", flat=True):
+                    used_value_ids.add(av_id)
 
             # Attributes grouped for UI: [ { "name": "Case Color", "values": [{"id": 1, "value": "Black"}, ...] }, ... ]
             attributes_grouped = []
             for attr in product.attributes.prefetch_related("values").order_by("display_order", "name"):
-                attributes_grouped.append({
-                    "id": attr.id,
-                    "name": attr.name,
-                    "values": [
-                        {"id": av.id, "value": av.value}
-                        for av in attr.values.order_by("display_order", "value")
-                    ],
-                })
+                values_for_attr = [
+                    {"id": av.id, "value": av.value}
+                    for av in attr.values.order_by("display_order", "value")
+                    if av.id in used_value_ids
+                ]
+                # Skip attributes with no values used by any active + in-stock variant
+                if not values_for_attr:
+                    continue
+                attributes_grouped.append(
+                    {
+                        "id": attr.id,
+                        "name": attr.name,
+                        "values": values_for_attr,
+                    }
+                )
             context["variants"] = variants
             context["selected_variant"] = selected_variant
             context["attributes_grouped"] = attributes_grouped
-            # JSON for variant resolution: variant_id -> { price, stock, in_stock, image_urls }
-            variant_data = {}
+
+            # Ordered attribute names for strict top-down selection (Level 0..N)
+            context["ordered_attributes"] = [a["name"] for a in attributes_grouped]
+
+            # Variant JSON for frontend (variant-driven, strict hierarchical selection)
+            variant_json = []
             for v in variants:
-                imgs = list(v.images.order_by("display_order", "-is_primary", "id"))
-                variant_data[str(v.id)] = {
-                    "price": str(v.price),
-                    "stock": v.stock_quantity,
-                    "in_stock": (v.stock_quantity or 0) > 0,
-                    "image_urls": [img.image.url for img in imgs if img.image] or [],
-                }
-            context["variant_data_json"] = json.dumps(variant_data)
+                # Map attributes by human name: {"Color": "Blue", "Size": "XL"}
+                attr_map = {}
+                for av in v.attribute_values.select_related("attribute").all():
+                    attr = getattr(av, "attribute", None)
+                    if not attr or not attr.name:
+                        continue
+                    attr_map[attr.name] = av.value
+
+                imgs = list(
+                    v.images.filter(image__isnull=False)
+                    .exclude(image="")
+                    .order_by("-is_primary", "display_order", "id")
+                )
+                primary_image_url = None
+                for img in imgs:
+                    try:
+                        if img.image and img.image.url:
+                            primary_image_url = img.image.url
+                            break
+                    except Exception:
+                        continue
+
+                variant_json.append(
+                    {
+                        "id": v.id,
+                        "price": str(v.price),
+                        "stock": v.stock_quantity,
+                        "attributes": attr_map,
+                        "image": primary_image_url,
+                    }
+                )
+            context["variant_json"] = variant_json
+
             selected_attr_value_ids = []
             if selected_variant:
                 selected_attr_value_ids = list(
@@ -1448,7 +1590,7 @@ class OrderSuccessView(DetailView):
     slug_field = "order_number"
 
     def get_queryset(self):
-        return Order.objects.select_related("address", "payment").prefetch_related("items")
+        return Order.objects.select_related("address", "payment", "shipment").prefetch_related("items")
 
     def dispatch(self, request, *args, **kwargs):
         try:
@@ -1468,6 +1610,32 @@ class OrderSuccessView(DetailView):
             logger.error(f"Error in OrderSuccessView.dispatch: {str(e)}", exc_info=True)
             messages.error(request, "Failed to retrieve order details.")
             return redirect("store:home")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["active_page"] = "orders"
+        return context
+
+
+class OrderDetailPageView(LoginRequiredMixin, DetailView):
+    """
+    Dedicated order detail page for logged-in users.
+    Uses the same rich layout as the checkout success page,
+    but without relying on the last_order_number session guard.
+    """
+
+    template_name = "order_detail.html"
+    context_object_name = "order"
+    slug_url_kwarg = "order_number"
+    slug_field = "order_number"
+
+    def get_queryset(self):
+        # Restrict orders to the logged-in user
+        return (
+            Order.objects.select_related("address", "payment", "shipment")
+            .prefetch_related("items")
+            .filter(user=self.request.user)
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1557,10 +1725,29 @@ class RazorpayPaymentVerifyView(View):
 
     def post(self, request, *args, **kwargs):
         try:
-            data = json.loads(request.body)
-            razorpay_order_id = data.get('razorpay_order_id')
-            razorpay_payment_id = data.get('razorpay_payment_id')
-            razorpay_signature = data.get('razorpay_signature')
+            # Accept both JSON (AJAX) and standard form POSTs (e.g. Razorpay callback_url)
+            razorpay_order_id = request.POST.get("razorpay_order_id")
+            razorpay_payment_id = request.POST.get("razorpay_payment_id")
+            razorpay_signature = request.POST.get("razorpay_signature")
+
+            if not (razorpay_order_id and razorpay_payment_id and razorpay_signature):
+                try:
+                    data = json.loads(request.body or "{}")
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    data = {}
+                razorpay_order_id = razorpay_order_id or data.get("razorpay_order_id")
+                razorpay_payment_id = razorpay_payment_id or data.get("razorpay_payment_id")
+                razorpay_signature = razorpay_signature or data.get("razorpay_signature")
+
+            if not (razorpay_order_id and razorpay_payment_id and razorpay_signature):
+                return JsonResponse(
+                    {
+                        "status": "error",
+                        "message": "Missing payment parameters.",
+                        "redirect": "/cart/",
+                    },
+                    status=400,
+                )
 
             logger.info("Payment verification attempt - Order: %s, Payment: %s", razorpay_order_id, razorpay_payment_id)
 

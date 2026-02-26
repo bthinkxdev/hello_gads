@@ -36,6 +36,17 @@
                             <div class="order-status status-{{ order.status }} mb-2">
                                 Status: {{ order.get_status_display }}
                             </div>
+                            {% if order.shipment %}
+                            <div class="order-status mb-2" style="font-size: var(--text-sm);">
+                                Shipment: {{ order.shipment.current_status|default:"Pending" }}
+                                {% if order.shipment.awb_code %}
+                                    · AWB: {{ order.shipment.awb_code }}
+                                {% endif %}
+                                {% if order.shipment.courier_name %}
+                                    · {{ order.shipment.courier_name }}
+                                {% endif %}
+                            </div>
+                            {% endif %}
                             {% if order.payment %}
                             <div class="payment-status status-{{ order.payment.status }} mb-2">
                                 Payment: {{ order.payment.get_status_display }}
@@ -50,7 +61,7 @@
                                 {% endfor %}
                             </div>
                             <div class="mt-3 pt-2">
-                                <a href="{% url 'store:order_success' order.order_number %}" class="btn btn-outline-dark btn-sm">View details</a>
+                                <a href="{% url 'store:order_detail' order.order_number %}" class="btn btn-outline-dark btn-sm">View details</a>
                             </div>
                         </div>
                     {% endfor %}

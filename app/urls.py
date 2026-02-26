@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from .webhook_views import ShiprocketWebhookView
 
 app_name = "store"
 
@@ -28,6 +29,7 @@ urlpatterns = [
     path("checkout/place-order/", views.OrderCreateView.as_view(), name="order_create"),
     path("checkout/create-razorpay-order/", views.CreateRazorpayOrderView.as_view(), name="create_razorpay_order"),
     path("orders/<slug:order_number>/", views.OrderSuccessView.as_view(), name="order_success"),
+    path("orders/<slug:order_number>/detail/", views.OrderDetailPageView.as_view(), name="order_detail"),
     path("orders/", views.OrderHistoryView.as_view(), name="order_history"),
     path("payment/razorpay/verify/", views.RazorpayPaymentVerifyView.as_view(), name="razorpay_verify"),
     path("payment/razorpay/cancel/", views.RazorpayPaymentCancelView.as_view(), name="razorpay_cancel"),
@@ -37,5 +39,6 @@ urlpatterns = [
     path("privacy/", views.StaticPageView.as_view(template_name="privacy.html", extra_context={"active_page": "privacy"}), name="privacy"),
     path("terms/", views.StaticPageView.as_view(template_name="terms.html", extra_context={"active_page": "terms"}), name="terms"),
     path("shipping/", views.StaticPageView.as_view(template_name="shipping.html", extra_context={"active_page": "shipping"}), name="shipping"),
+    path("webhooks/shiprocket/", ShiprocketWebhookView.as_view(), name="shiprocket_webhook"),
 ]
 

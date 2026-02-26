@@ -84,16 +84,20 @@
     </div>
 </div>
 
-<!-- Categories -->
+{% if shop_categories %}
+<!-- Shop by Category -->
 <section class="section-pad bg-bw-1">
     <div class="container">
-        <div class="text-center mb-4 wow fadeInUp" data-wow-delay="0.1s">
-            <span class="section-label">Browse By</span>
-            <h2 class="section-title">Shop Categories</h2>
-            <div class="section-divider mx-auto"></div>
+        <div class="section-header d-flex align-items-end justify-content-between mb-4 wow fadeInUp" data-wow-delay="0.1s">
+            <div class="text-start w-100 text-center text-md-start">
+                <span class="section-label">Browse By</span>
+                <h2 class="section-title mb-0">Shop by Category</h2>
+                <div class="section-divider mx-auto mx-md-0"></div>
+            </div>
+            <a href="{% url 'store:product_list' %}" class="btn btn-outline-dark px-4 d-none d-md-inline-flex">View All</a>
         </div>
         <div class="row g-3 wow fadeInUp" data-wow-delay="0.2s">
-            {% for category in categories %}
+            {% for category in shop_categories %}
             <div class="col-6 col-md-4 col-lg-2">
                 <a href="{% url 'store:product_list' %}?category={{ category.slug }}" class="category-card text-decoration-none">
                     {% if category.image %}
@@ -104,17 +108,38 @@
                     <h6>{{ category.name }}</h6>
                 </a>
             </div>
-            {% empty %}
-            <div class="col-12 text-center text-muted">No categories yet.</div>
             {% endfor %}
         </div>
     </div>
 </section>
+{% endif %}
 
+{% if deal_of_day_products %}
+<!-- Deal of the Day -->
+<section class="section-pad">
+    <div class="container">
+        <div class="section-header d-flex align-items-end justify-content-between mb-4 wow fadeInUp" data-wow-delay="0.1s">
+            <div>
+                <span class="section-label">Don’t Miss</span>
+                <h2 class="section-title mb-0">Deal of the Day</h2>
+                <div class="section-divider"></div>
+            </div>
+            <a href="{% url 'store:product_list' %}" class="btn btn-outline-dark px-4 d-none d-md-inline-flex">View All</a>
+        </div>
+        <div class="products-grid wow fadeInUp" data-wow-delay="0.2s">
+            {% for product in deal_of_day_products %}
+                {% include "partials/_product_card.html" with product=product %}
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{% if bestseller_products %}
 <!-- Best Sellers -->
 <section class="section-pad">
     <div class="container">
-        <div class="d-flex align-items-end justify-content-between mb-4 wow fadeInUp" data-wow-delay="0.1s">
+        <div class="section-header d-flex align-items-end justify-content-between mb-4 wow fadeInUp" data-wow-delay="0.1s">
             <div>
                 <span class="section-label">Top Picks</span>
                 <h2 class="section-title mb-0">Best Sellers</h2>
@@ -124,50 +149,75 @@
         </div>
         <div class="products-grid wow fadeInUp" data-wow-delay="0.2s">
             {% for product in bestseller_products %}
-                {% with first_variant=product.variants.all|first %}
-                {% if first_variant %}
-                <div class="product-card">
-                    <div class="product-img-wrap">
-                        {% if product.discount_percent %}<span class="product-badge badge-sale">−{{ product.discount_percent }}%</span>{% endif %}
-                        <a href="{% url 'store:product_detail' product.slug %}?variant={{ first_variant.id }}">
-                            {% with imgs=first_variant.images.all %}{% if imgs %}
-                            <img src="{{ imgs.0.image.url }}" alt="{{ product.name }}" loading="lazy">
-                            {% else %}
-                            <img src="{% static 'img/product-1.png' %}" alt="{{ product.name }}" loading="lazy">
-                            {% endif %}{% endwith %}
-                        </a>
-                        <button type="button" class="product-wishlist js-wishlist-toggle" data-variant-id="{{ first_variant.id }}" title="Add to Wishlist"><i class="far fa-heart"></i></button>
-                        <a href="{% url 'store:product_detail' product.slug %}?variant={{ first_variant.id }}" class="product-quick-add">View Detail <i class="fas fa-arrow-right ms-1"></i></a>
-                    </div>
-                    <div class="product-body">
-                        <div class="product-category">{{ product.category.name|default:"" }}</div>
-                        <a href="{% url 'store:product_detail' product.slug %}?variant={{ first_variant.id }}" class="text-decoration-none"><h3 class="product-name">{{ product.name }}</h3></a>
-                        <div class="product-price">
-                            <span class="price-current">₹{{ first_variant.price|floatformat:0 }}</span>
-                            {% if first_variant.original_price and first_variant.original_price > first_variant.price %}
-                            <span class="price-old">₹{{ first_variant.original_price|floatformat:0 }}</span>
-                            {% endif %}
-                        </div>
-                        <form method="post" action="{% url 'store:cart_add' %}" class="product-add-form d-inline-block w-100">
-                            {% csrf_token %}
-                            <input type="hidden" name="product_id" value="{{ product.id }}">
-                            <input type="hidden" name="variant_id" value="{{ first_variant.id }}">
-                            <input type="hidden" name="quantity" value="1">
-                            <button type="submit" class="product-cta w-100 border-0">Add to Cart</button>
-                        </form>
-                    </div>
-                </div>
-                {% endif %}
-                {% endwith %}
-            {% empty %}
-            <p class="text-muted">No bestsellers yet.</p>
+                {% include "partials/_product_card.html" with product=product %}
             {% endfor %}
-        </div>
-        <div class="text-center mt-4 d-md-none wow fadeInUp" data-wow-delay="0.3s">
-            <a href="{% url 'store:product_list' %}" class="btn btn-secondary px-5">View All Products</a>
         </div>
     </div>
 </section>
+{% endif %}
+
+{% if new_arrival_products %}
+<!-- New Arrivals -->
+<section class="section-pad bg-bw-1">
+    <div class="container">
+        <div class="section-header d-flex align-items-end justify-content-between mb-4 wow fadeInUp" data-wow-delay="0.1s">
+            <div>
+                <span class="section-label">Just In</span>
+                <h2 class="section-title mb-0">New Arrivals</h2>
+                <div class="section-divider"></div>
+            </div>
+            <a href="{% url 'store:product_list' %}" class="btn btn-outline-dark px-4 d-none d-md-inline-flex">View All</a>
+        </div>
+        <div class="products-grid wow fadeInUp" data-wow-delay="0.2s">
+            {% for product in new_arrival_products %}
+                {% include "partials/_product_card.html" with product=product %}
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{% if top_rated_products %}
+<!-- Top Rated -->
+<section class="section-pad">
+    <div class="container">
+        <div class="section-header d-flex align-items-end justify-content-between mb-4 wow fadeInUp" data-wow-delay="0.1s">
+            <div>
+                <span class="section-label">Customer Favorites</span>
+                <h2 class="section-title mb-0">Top Rated</h2>
+                <div class="section-divider"></div>
+            </div>
+            <a href="{% url 'store:product_list' %}" class="btn btn-outline-dark px-4 d-none d-md-inline-flex">View All</a>
+        </div>
+        <div class="products-grid wow fadeInUp" data-wow-delay="0.2s">
+            {% for product in top_rated_products %}
+                {% include "partials/_product_card.html" with product=product %}
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{% if budget_products %}
+<!-- Budget Picks -->
+<section class="section-pad bg-bw-1">
+    <div class="container">
+        <div class="section-header d-flex align-items-end justify-content-between mb-4 wow fadeInUp" data-wow-delay="0.1s">
+            <div>
+                <span class="section-label">Great Value</span>
+                <h2 class="section-title mb-0">Budget Picks under ₹499</h2>
+                <div class="section-divider"></div>
+            </div>
+            <a href="{% url 'store:product_list' %}?max_price=499" class="btn btn-outline-dark px-4 d-none d-md-inline-flex">View All</a>
+        </div>
+        <div class="products-grid wow fadeInUp" data-wow-delay="0.2s">
+            {% for product in budget_products %}
+                {% include "partials/_product_card.html" with product=product %}
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
 
 <!-- Promo Banner -->
 <section class="section-pad bg-bw-1">
@@ -181,61 +231,24 @@
     </div>
 </section>
 
-<!-- Featured Products -->
+{% if featured_products %}
+<!-- Featured Collection -->
 <section class="section-pad">
     <div class="container">
-        <div class="d-flex align-items-end justify-content-between mb-4 wow fadeInUp" data-wow-delay="0.1s">
+        <div class="section-header d-flex align-items-end justify-content-between mb-4 wow fadeInUp" data-wow-delay="0.1s">
             <div>
                 <span class="section-label">Hand-Picked</span>
-                <h2 class="section-title mb-0">Featured Products</h2>
+                <h2 class="section-title mb-0">Featured Collection</h2>
                 <div class="section-divider"></div>
             </div>
             <a href="{% url 'store:product_list' %}" class="btn btn-outline-dark px-4 d-none d-md-inline-flex">View All</a>
         </div>
         <div class="products-grid wow fadeInUp" data-wow-delay="0.2s">
             {% for product in featured_products %}
-                {% with first_variant=product.variants.all|first %}
-                {% if first_variant %}
-                <div class="product-card">
-                    <div class="product-img-wrap">
-                        <span class="product-badge badge-new">Featured</span>
-                        <a href="{% url 'store:product_detail' product.slug %}?variant={{ first_variant.id }}">
-                            {% with imgs=first_variant.images.all %}{% if imgs %}
-                            <img src="{{ imgs.0.image.url }}" alt="{{ product.name }}" loading="lazy">
-                            {% else %}
-                            <img src="{% static 'img/product-1.png' %}" alt="{{ product.name }}" loading="lazy">
-                            {% endif %}{% endwith %}
-                        </a>
-                        <button type="button" class="product-wishlist js-wishlist-toggle" data-variant-id="{{ first_variant.id }}" title="Add to Wishlist"><i class="far fa-heart"></i></button>
-                        <a href="{% url 'store:product_detail' product.slug %}?variant={{ first_variant.id }}" class="product-quick-add">View Detail <i class="fas fa-arrow-right ms-1"></i></a>
-                    </div>
-                    <div class="product-body">
-                        <div class="product-category">{{ product.category.name|default:"" }}</div>
-                        <a href="{% url 'store:product_detail' product.slug %}?variant={{ first_variant.id }}" class="text-decoration-none"><h3 class="product-name">{{ product.name }}</h3></a>
-                        <div class="product-price">
-                            <span class="price-current">₹{{ first_variant.price|floatformat:0 }}</span>
-                            {% if first_variant.original_price and first_variant.original_price > first_variant.price %}
-                            <span class="price-old">₹{{ first_variant.original_price|floatformat:0 }}</span>
-                            {% endif %}
-                        </div>
-                        <form method="post" action="{% url 'store:cart_add' %}" class="product-add-form d-inline-block w-100">
-                            {% csrf_token %}
-                            <input type="hidden" name="product_id" value="{{ product.id }}">
-                            <input type="hidden" name="variant_id" value="{{ first_variant.id }}">
-                            <input type="hidden" name="quantity" value="1">
-                            <button type="submit" class="product-cta w-100 border-0">Add to Cart</button>
-                        </form>
-                    </div>
-                </div>
-                {% endif %}
-                {% endwith %}
-            {% empty %}
-            <p class="text-muted">No featured products yet.</p>
+                {% include "partials/_product_card.html" with product=product %}
             {% endfor %}
-        </div>
-        <div class="text-center mt-4 d-md-none">
-            <a href="{% url 'store:product_list' %}" class="btn btn-secondary px-5">View All Products</a>
         </div>
     </div>
 </section>
+{% endif %}
 {% endblock %}

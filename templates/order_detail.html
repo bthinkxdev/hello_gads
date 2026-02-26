@@ -1,7 +1,7 @@
 {% extends "base_gadget.html" %}
 {% load static %}
-{% block title %}Order Success — Hello Gads{% endblock %}
-{% block meta_description %}Your order has been placed successfully! Track your Hello Gads order details and summary in one clean view.{% endblock %}
+{% block title %}Order Details — Hello Gads{% endblock %}
+{% block meta_description %}View your Hello Gads order details, items, totals and live shipment tracking in one place.{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/success.css' %}">
 {% endblock %}
@@ -9,13 +9,13 @@
 
 <div class="page-header">
     <div class="container text-center">
-        <h1 class="page-header-title wow fadeInUp" data-wow-delay="0.1s">Order Placed</h1>
+        <h1 class="page-header-title wow fadeInUp" data-wow-delay="0.1s">Order details</h1>
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb justify-content-center wow fadeInUp" data-wow-delay="0.2s">
                 <li class="breadcrumb-item"><a href="{% url 'store:home' %}">Home</a></li>
-                <li class="breadcrumb-item"><a href="{% url 'store:cart' %}">Cart</a></li>
-                <li class="breadcrumb-item"><a href="{% url 'store:checkout' %}">Checkout</a></li>
-                <li class="breadcrumb-item active" aria-current="page">Success</li>
+                <li class="breadcrumb-item"><a href="{% url 'auth:account' %}">Account</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'store:order_history' %}">Orders</a></li>
+                <li class="breadcrumb-item active" aria-current="page">#{{ order.order_number }}</li>
             </ol>
         </nav>
     </div>
@@ -31,12 +31,12 @@
                             <span class="success-icon-check">✓</span>
                         </div>
                         <div class="success-header-text">
-                            <p class="success-pill">Order confirmed</p>
+                            <p class="success-pill">Order {{ order.get_status_display }}</p>
                             <h2 class="success-title">
-                                Thank you{% if order.address and order.address.full_name %}, {{ order.address.full_name }}{% endif %}!
+                                Order #{{ order.order_number }}
                             </h2>
                             <p class="success-subtitle">
-                                Your order has been received and is being processed. We’ll share updates on WhatsApp and SMS when it’s packed, shipped and out for delivery.
+                                Here’s a complete summary of your order, payment and delivery details.
                             </p>
                         </div>
                     </div>
@@ -95,13 +95,9 @@
                             <span>Chat on WhatsApp</span>
                         </a>
                         <a href="{% url 'store:order_history' %}" class="btn btn-link text-decoration-none success-link">
-                            View all orders
+                            Back to all orders
                         </a>
                     </div>
-
-                    <p class="success-footer-note">
-                        We’ll also send your invoice and tracking link as soon as the shipment is created.
-                    </p>
                 </div>
             </div>
 
@@ -135,6 +131,7 @@
                     </div>
                 </div>
             </div>
+
             {% if order.shipment %}
             <div class="col-lg-4">
                 <div class="checkout-card">

@@ -630,6 +630,20 @@
                         v.id +
                         '">Save</button>' +
                         "</div>" +
+                        '<div class="variant-fields-row variant-shipping-row">' +
+                        '<div class="variant-field"><label class="variant-field-label">Weight (kg)</label><input type="number" class="form-control variant-weight-inp" step="0.001" min="0" value="' +
+                        (v.weight != null && v.weight !== "" ? v.weight : "0") +
+                        '" placeholder="0" data-variant-id="' + v.id + '"></div>' +
+                        '<div class="variant-field"><label class="variant-field-label">Length (cm)</label><input type="number" class="form-control variant-length-inp" step="0.01" min="0" value="' +
+                        (v.length != null && v.length !== "" ? v.length : "0") +
+                        '" placeholder="0" data-variant-id="' + v.id + '"></div>' +
+                        '<div class="variant-field"><label class="variant-field-label">Breadth (cm)</label><input type="number" class="form-control variant-breadth-inp" step="0.01" min="0" value="' +
+                        (v.breadth != null && v.breadth !== "" ? v.breadth : "0") +
+                        '" placeholder="0" data-variant-id="' + v.id + '"></div>' +
+                        '<div class="variant-field"><label class="variant-field-label">Height (cm)</label><input type="number" class="form-control variant-height-inp" step="0.01" min="0" value="' +
+                        (v.height != null && v.height !== "" ? v.height : "0") +
+                        '" placeholder="0" data-variant-id="' + v.id + '"></div>' +
+                        "</div>" +
                         '<div class="nested-block variant-images-block">' +
                         '<div class="nested-title">Images</div>' +
                         '<div class="variant-images-list">' +
@@ -747,6 +761,10 @@
                 toast("Enter a valid price.", "error");
                 return;
             }
+            var weightInp = document.getElementById("add-variant-weight");
+            var lengthInp = document.getElementById("add-variant-length");
+            var breadthInp = document.getElementById("add-variant-breadth");
+            var heightInp = document.getElementById("add-variant-height");
             var payload = {
                 attribute_value_ids: attribute_value_ids,
                 price: priceVal,
@@ -754,6 +772,10 @@
                 sku: (addVariantSku && addVariantSku.value || "").trim() || null,
                 is_active: document.getElementById("add-variant-is_active") ? document.getElementById("add-variant-is_active").checked : true,
             };
+            if (weightInp) payload.weight = parseFloat(weightInp.value) || 0;
+            if (lengthInp) payload.length = parseFloat(lengthInp.value) || 0;
+            if (breadthInp) payload.breadth = parseFloat(breadthInp.value) || 0;
+            if (heightInp) payload.height = parseFloat(heightInp.value) || 0;
             addVariantSubmit.disabled = true;
             showLoader();
             fetch(urls.variantAdd, {
@@ -821,12 +843,20 @@
             var skuInp = card.querySelector(".variant-sku-inp");
             var orderInp = card.querySelector(".variant-order-inp");
             var activeCb = card.querySelector(".variant-is-active");
+            var weightInp = card.querySelector(".variant-weight-inp");
+            var lengthInp = card.querySelector(".variant-length-inp");
+            var breadthInp = card.querySelector(".variant-breadth-inp");
+            var heightInp = card.querySelector(".variant-height-inp");
             var payload = {};
             if (priceInp) payload.price = priceInp.value;
             if (stockInp) payload.stock_quantity = parseInt(stockInp.value, 10) || 0;
             if (skuInp) payload.sku = (skuInp.value || "").trim() || null;
             if (orderInp) payload.display_order = parseInt(orderInp.value, 10) || 0;
             if (activeCb) payload.is_active = activeCb.checked;
+            if (weightInp) payload.weight = parseFloat(weightInp.value) || 0;
+            if (lengthInp) payload.length = parseFloat(lengthInp.value) || 0;
+            if (breadthInp) payload.breadth = parseFloat(breadthInp.value) || 0;
+            if (heightInp) payload.height = parseFloat(heightInp.value) || 0;
             showLoader();
             fetch(url(urls.variantUpdate, vid), {
                 method: "POST",
