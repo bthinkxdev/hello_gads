@@ -19,6 +19,8 @@ from ..models import (
     Variant,
     Wishlist,
 )
+import logging
+logger = logging.getLogger(__name__)
 
 
 def send_order_notification_email_async(order, request=None):
@@ -97,6 +99,7 @@ class CartTotals:
     subtotal: object
     gst_total: object
     shipping: object
+    cod_fee: object   
     total: object
 
 
@@ -167,17 +170,52 @@ class CartService:
         request.session.pop("wishlist", None)
 
     @staticmethod
-    def compute_totals(cart):
-        try:
-            subtotal = sum(item.line_total for item in cart.items.select_related("product"))
-            gst_total = cart.gst_total
-            FREE_SHIPPING_THRESHOLD = getattr(settings, "FREE_SHIPPING_ABOVE", 499)
-            delivery_charge = getattr(settings, "FLAT_DELIVERY_CHARGE", 80)
-            shipping = 0 if subtotal >= FREE_SHIPPING_THRESHOLD else delivery_charge
-            total = subtotal + gst_total + shipping
-            return CartTotals(subtotal=subtotal, gst_total=gst_total, shipping=shipping, total=total)
-        except Exception:
-            return CartTotals(subtotal=0, gst_total=0, shipping=0, total=0)
+    def compute_totals(cart, payment_method=None, pincode=None, items_data=None):
+        """
+        Compute cart totals with optional Shiprocket shipping rates.
+        If pincode and items_data provided, get real shipping rates.
+        """
+        subtotal = sum(item.line_total for item in cart.items.select_related("product"))
+        gst_total = cart.gst_total
+        
+        # Default shipping (fallback)
+        FREE_SHIPPING_THRESHOLD = getattr(settings, "FREE_SHIPPING_ABOVE", 499)
+        delivery_charge = getattr(settings, "FLAT_DELIVERY_CHARGE", 80)
+        cod_charge = getattr(settings, "COD_CHARGE", 100)
+        
+        shipping = 0 if subtotal >= FREE_SHIPPING_THRESHOLD else delivery_charge
+        cod_fee = cod_charge if payment_method == "cod" else 0
+        
+        # If we have pincode and items, try to get real shipping rates from Shiprocket
+        if pincode and items_data:
+            try:
+                from ..services.shiprocket_service import shiprocket_service
+                from ..services.parcel_calculator import calculate_parcel_from_items
+                
+                # Calculate parcel from cart items
+                parcel = calculate_parcel_from_items(items_data)
+                
+                # Get shipping rates from Shiprocket
+                rates = shiprocket_service.get_shipping_rates(
+                    pickup_pincode=getattr(settings, "SHOP_PINCODE", "673001"),  # Your shop pincode
+                    delivery_pincode=pincode,
+                    weight=parcel["weight"],
+                    length=parcel["length"],
+                    breadth=parcel["breadth"],
+                    height=parcel["height"],
+                    is_cod=(payment_method == "cod")
+                )
+                
+                if rates["is_serviceable"] and rates["recommended_courier"]:
+                    # Use the recommended courier's rate
+                    shipping = rates["recommended_courier"]["freight_charge"]
+                    cod_fee = rates["recommended_courier"].get("cod_charges", 0) if payment_method == "cod" else 0
+            except Exception as e:
+                logger.error(f"Failed to get Shiprocket rates: {e}")
+                # Fall back to default shipping
+        
+        total = subtotal + shipping + cod_fee + gst_total
+        return CartTotals(subtotal=subtotal, shipping=shipping, cod_fee=cod_fee, total=total, gst_total=gst_total)
 
     @staticmethod
     def add_item(cart, variant, quantity):
@@ -256,6 +294,50 @@ class OrderService:
                 raise CartError("Invalid cart item.")
             if item.quantity > v.stock_quantity:
                 raise StockError(f"{item.product.name} is out of stock.")
+            
+        pincode = form_data.get("pincode")
+        serviceability = None  # ✅ always defined
+
+        if pincode:
+            try:
+                from ..services.shiprocket_service import shiprocket_service
+                from ..services.parcel_calculator import calculate_parcel_from_items
+
+                items_data = [
+                    {"variant": item.selected_variant, "quantity": item.quantity}
+                    for item in cart.items.select_related("selected_variant").all()
+                ]
+                parcel = calculate_parcel_from_items(items_data)
+
+                serviceability = shiprocket_service.check_serviceability(
+                    pickup_pincode=getattr(settings, "SHOP_PINCODE", "673001"),
+                    delivery_pincode=pincode,
+                    weight=float(parcel["weight"]),
+                    length=float(parcel["length"]),
+                    breadth=float(parcel["breadth"]),
+                    height=float(parcel["height"]),
+                    is_cod=(form_data.get("payment") == "cod"),
+                )
+
+                couriers = serviceability.get("data", {}).get("available_courier_companies") or []
+                if not couriers:
+                    raise CartError("Delivery is not available to this pincode.")
+
+            except CartError:
+                raise  # ✅ let CartError bubble up — don't swallow it
+            except Exception as e:
+                logger.error(f"Pincode validation failed: {e}")
+                # Non-critical: let order proceed if Shiprocket API is down
+
+        # Open box check — only if serviceability was fetched
+        if form_data.get("is_open_box", False) and serviceability:
+            open_box_supported = any(
+                c.get("open_box_delivery", False)
+                for c in serviceability.get("data", {}).get("available_courier_companies", [])
+            )
+            if not open_box_supported:
+                logger.warning("Open box requested but not supported for pincode %s", pincode)
+                form_data["is_open_box"] = False
 
         selected_address_id = form_data.get('selected_address')
         use_new_address = form_data.get('use_new_address', False)
@@ -289,7 +371,7 @@ class OrderService:
                 is_snapshot=True,
             )
 
-        totals = CartService.compute_totals(cart)
+        totals = CartService.compute_totals(cart, payment_method=form_data.get("payment"))
         order_number = cls._generate_order_number()
         gst_total = getattr(totals, "gst_total", 0) or 0
         state = (address.state or "").strip()
@@ -312,6 +394,7 @@ class OrderService:
             igst=igst,
             total=totals.total,
             address=address,
+            is_open_box=form_data.get("is_open_box", False), 
         )
 
         for item in items:

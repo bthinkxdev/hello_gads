@@ -34,6 +34,8 @@ from .models import (
     Shipment,
 )
 from .services import CartError, CartService, OrderService, StockError
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
 # Guest wishlist: session key and max items (variant ids)
 GUEST_WISHLIST_SESSION_KEY = "wishlist"
@@ -1241,6 +1243,7 @@ class CartView(TemplateView):
                 "totals": {"subtotal": 0, "gst_total": 0, "shipping": 0, "total": 0},
                 "update_form": CartUpdateForm(),
                 "active_page": "cart",
+                "cod_charge": getattr(settings, "COD_CHARGE", 100),
             })
             return context
 
@@ -1392,7 +1395,11 @@ class CheckoutView(TemplateView):
         try:
             context = super().get_context_data(**kwargs)
             cart = CartService.get_or_create_cart(self.request)
-            totals = CartService.compute_totals(cart)
+            payment_method = self.request.GET.get("payment", "cod")
+            # Get stored pincode and rates from session
+            context["stored_pincode"] = self.request.session.get("checkout_pincode", "")
+            context["shipping_rates"] = self.request.session.get("shipping_rates")
+            totals = CartService.compute_totals(cart, payment_method=payment_method)
             user = self.request.user if self.request.user.is_authenticated else None
 
             addresses = []
@@ -1428,6 +1435,8 @@ class CheckoutView(TemplateView):
                     "default_address": default_address,
                     "is_guest_checkout": user is None,
                     "active_page": "checkout",
+                    "check_pincode_url": reverse("store:check_pincode"),
+                    "shop_pincode": getattr(settings, "SHOP_PINCODE", "676309"),
                 }
             )
             return context
@@ -1444,6 +1453,7 @@ class CheckoutView(TemplateView):
                 "default_address": None,
                 "is_guest_checkout": user is None,
                 "active_page": "checkout",
+                "cod_charge": 0,
             })
             return context
 
@@ -1467,7 +1477,8 @@ class OrderCreateView(FormView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         cart = CartService.get_or_create_cart(self.request)
-        totals = CartService.compute_totals(cart)
+        payment_method = self.request.POST.get("payment", "cod")
+        totals = CartService.compute_totals(cart, payment_method=payment_method)
         user = self.request.user if self.request.user.is_authenticated else None
         addresses = []
         default_address = None
@@ -1502,17 +1513,34 @@ class OrderCreateView(FormView):
             messages.info(self.request, "Please use the Pay & Place Order button for online payment.")
             return redirect("store:checkout")
 
+        # Soft pincode check from session — if session is fresh and matches, use it.
+        shipping_rates = self.request.session.get("shipping_rates")
+        session_pincode = self.request.session.get("checkout_pincode")
+        form_pincode = form.cleaned_data.get("pincode")
+
+        if shipping_rates and session_pincode == form_pincode:
+            # Session data is fresh and pincode matches — check open box availability
+            if form.cleaned_data.get("is_open_box"):
+                open_box_supported = any(
+                    c.get("open_box_supported", False)
+                    for c in shipping_rates.get("available_couriers", [])
+                )
+                if not open_box_supported:
+                    messages.warning(
+                        self.request,
+                        "Open box delivery is not available for this pincode. "
+                        "Order will be placed without open box."
+                    )
+                    form.cleaned_data["is_open_box"] = False
+
         try:
             order = OrderService.create_order(cart, form.cleaned_data, user=order_user, clear_cart=True)
         except (CartError, StockError) as exc:
             messages.error(self.request, str(exc))
             return redirect("store:checkout")
+
         self.request.session["last_order_number"] = order.order_number
         return redirect("store:order_success", order_number=order.order_number)
-
-    def form_invalid(self, form):
-        return self.render_to_response(self.get_context_data(form=form))
-
 
 class CreateRazorpayOrderView(View):
     """
@@ -1567,7 +1595,7 @@ class CreateRazorpayOrderView(View):
 
                 payment = order.payment
                 client = razorpay.Client(auth=(settings.RZP_CLIENT_ID, settings.RZP_CLIENT_SECRET))
-                totals = CartService.compute_totals(cart)
+                totals = CartService.compute_totals(cart, payment_method="razorpay")
                 amount_paise = int(totals.total * 100)
                 razorpay_order = client.order.create({
                     "amount": amount_paise,
@@ -1912,3 +1940,81 @@ class RazorpayPaymentCancelView(View):
                 'message': 'Returning to cart...',
                 'redirect': '/cart/'
             })
+        
+class CheckPincodeView(View):
+    """AJAX endpoint to check pincode serviceability"""
+    
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            pincode = data.get("pincode", "").strip()
+            
+            if not pincode or not pincode.isdigit() or len(pincode) != 6:
+                return JsonResponse({
+                    "success": False,
+                    "error": "Please enter a valid 6-digit pincode"
+                }, status=400)
+            
+            cart = CartService.get_or_create_cart(request)
+            
+            # Calculate parcel from cart items
+            items_data = []
+            for item in cart.items.select_related("selected_variant").all():
+                items_data.append({
+                    "variant": item.selected_variant,
+                    "quantity": item.quantity
+                })
+            
+            if not items_data:
+                return JsonResponse({
+                    "success": False,
+                    "error": "Your cart is empty"
+                }, status=400)
+            
+            from .services.parcel_calculator import calculate_parcel_from_items
+            from .services.shiprocket_service import shiprocket_service
+            
+            parcel = calculate_parcel_from_items(items_data)
+            
+            # Get shipping rates
+            rates = shiprocket_service.get_shipping_rates(
+                pickup_pincode=getattr(settings, "SHOP_PINCODE", "673001"),
+                delivery_pincode=pincode,
+                weight=float(parcel["weight"]),
+                length=float(parcel["length"]),
+                breadth=float(parcel["breadth"]),
+                height=float(parcel["height"]),
+                is_cod=False
+            )
+            
+            # Store in session
+            request.session["checkout_pincode"] = pincode
+            request.session["shipping_rates"] = rates
+            
+            # Check open box support
+            open_box_supported = any(
+                c.get("open_box_supported", False) 
+                for c in rates.get("available_couriers", [])
+            )
+            
+            # Get recommended courier
+            recommended = rates.get("recommended_courier", {})
+            
+            return JsonResponse({
+                "success": True,
+                "is_serviceable": rates.get("is_serviceable", False),
+                "pincode": pincode,
+                "open_box_supported": open_box_supported,
+                "shipping_charge": recommended.get("freight_charge", 0),
+                "cod_charge": recommended.get("cod_charges", 0),
+                "courier_name": recommended.get("courier_name", ""),
+                "estimated_days": recommended.get("estimated_delivery_days", ""),
+                "available_couriers": rates.get("available_couriers", [])[:3],  # Top 3
+            })
+            
+        except Exception as e:
+            logger.error(f"Pincode check error: {e}", exc_info=True)
+            return JsonResponse({
+                "success": False,
+                "error": "Failed to check pincode. Please try again."
+            }, status=500)

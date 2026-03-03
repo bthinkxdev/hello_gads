@@ -71,10 +71,61 @@ def calculate_parcel(order: Order) -> dict:
 
     final_weight = max(total_weight, volumetric_weight)
 
+    MIN_DIM = Decimal("0.5")
+    MIN_WEIGHT = Decimal("0.1")
+
     return {
-        "length": round(length, 2),
-        "breadth": round(breadth, 2),
-        "height": round(height, 2),
-        "weight": round(final_weight, 2),
+        "length": round(max(length, MIN_DIM), 2),
+        "breadth": round(max(breadth, MIN_DIM), 2),
+        "height": round(max(height, MIN_DIM), 2),
+        "weight": round(max(final_weight, MIN_WEIGHT), 2),
     }
 
+def calculate_parcel_from_items(items_data):
+    """
+    Calculate parcel dimensions from cart items data.
+    items_data: list of dicts with 'variant' and 'quantity'
+    """    
+    total_weight = Decimal("0")
+    lengths = []
+    breadths = []
+    heights = []
+    
+    for item in items_data:
+        variant = item["variant"]
+        qty = Decimal(item["quantity"])
+        
+        weight = _to_decimal(getattr(variant, "weight", 0))
+        length = _to_decimal(getattr(variant, "length", 0))
+        breadth = _to_decimal(getattr(variant, "breadth", 0))
+        height = _to_decimal(getattr(variant, "height", 0))
+        
+        total_weight += weight * qty
+        if length > 0:
+            lengths.append(length)
+        if breadth > 0:
+            breadths.append(breadth)
+        if height > 0:
+            heights.append(height * qty)
+    
+    length = max(lengths) if lengths else Decimal("0")
+    breadth = max(breadths) if breadths else Decimal("0")
+    height = sum(heights) if heights else Decimal("0")
+    
+    volumetric_weight = Decimal("0")
+    if length > 0 and breadth > 0 and height > 0:
+        volumetric_weight = (length * breadth * height) / Decimal("5000")
+    
+    final_weight = max(total_weight, volumetric_weight)
+
+    MIN_LENGTH = Decimal("0.5")
+    MIN_BREADTH = Decimal("0.5")
+    MIN_HEIGHT = Decimal("0.5")
+    MIN_WEIGHT = Decimal("0.1")
+    
+    return {
+        "length": round(max(length, MIN_LENGTH), 2),
+        "breadth": round(max(breadth, MIN_BREADTH), 2),
+        "height": round(max(height, MIN_HEIGHT), 2),
+        "weight": round(max(final_weight, MIN_WEIGHT), 2),
+    }

@@ -109,6 +109,8 @@ class ShiprocketService:
                     exc,
                     exc_info=True,
                 )
+                if hasattr(exc, 'response') and exc.response is not None:
+                    logger.warning("Shiprocket response body: %s", exc.response.text)
                 last_exc = exc
 
             # Backoff before retry, except after last attempt
@@ -172,6 +174,7 @@ class ShiprocketService:
             "breadth": float(parcel["breadth"]),
             "height": float(parcel["height"]),
             "weight": float(parcel["weight"]),
+            "is_open_box_delivery": 1 if getattr(order, "is_open_box", False) else 0,
         }
 
         data = self._request("POST", "/orders/create/adhoc", json=payload)
@@ -235,6 +238,64 @@ class ShiprocketService:
             data,
         )
         return data
+    
+    def check_serviceability(self, pickup_pincode: str, delivery_pincode: str,
+                             weight: float, length: float, breadth: float, height: float,
+                             is_cod: bool = False) -> dict:
+        """Check if delivery is possible to destination pincode."""
+        params = {
+            "pickup_postcode": pickup_pincode,
+            "delivery_postcode": delivery_pincode,
+            "weight": weight,
+            "length": length,
+            "breadth": breadth,
+            "height": height,
+            "cod": 1 if is_cod else 0,
+        }
+        data = self._request("GET", "/courier/serviceability/", params=params)
+        logger.info("Serviceability check: %s -> %s", pickup_pincode, delivery_pincode)
+        return data
+
+    def get_shipping_rates(self, pickup_pincode, delivery_pincode,
+                       weight, length, breadth, height, is_cod=False):
+        data = self.check_serviceability(
+            pickup_pincode, delivery_pincode,
+            weight, length, breadth, height, is_cod
+        )
+        available_couriers = []
+        for courier in (data.get("data", {}).get("available_courier_companies") or []):
+            available_couriers.append({
+                "courier_id": courier.get("courier_company_id"),
+                "courier_name": courier.get("courier_name"),
+                "rate": float(courier.get("rate", 0)),
+                "freight_charge": float(courier.get("freight_charge", 0)),
+                "cod_charges": float(courier.get("cod_charges", 0)),
+                "estimated_delivery_days": courier.get("estimated_delivery_days"),
+                "open_box_supported": bool(courier.get("open_box_delivery", False)),
+                "cod_supported": bool(courier.get("cod", False)),
+            })
+
+        # ✅ is_serviceable = True if any couriers came back
+        # Shiprocket doesn't return an explicit is_serviceable field
+        is_serviceable = len(available_couriers) > 0
+
+        return {
+            "is_serviceable": is_serviceable,
+            "pickup_pincode": pickup_pincode,
+            "delivery_pincode": delivery_pincode,
+            "available_couriers": available_couriers,
+            "recommended_courier": available_couriers[0] if available_couriers else None,
+        }
+
+    def get_available_couriers_for_shipment(self, shipment_id: str) -> dict:
+        """Get couriers available for a specific shipment (admin use)."""
+        data = self._request("GET", f"/courier/available/?shipment_id={shipment_id}")
+        return data
+
+    def assign_specific_courier(self, shipment_id: str, courier_id: str) -> dict:
+        """Assign a specific courier instead of auto-assignment."""
+        payload = {"shipment_id": shipment_id, "courier_id": courier_id}
+        return self._request("POST", "/courier/assign/awb", json=payload)
 
     def track_shipment(self, awb_code: str) -> dict:
         path = f"/courier/track/awb/{awb_code}"

@@ -204,6 +204,11 @@ RZP_CLIENT_SECRET = config('RZP_CLIENT_SECRET')
 # Shiprocket Configuration
 SHIPROCKET_EMAIL = config('SHIPROCKET_EMAIL')
 SHIPROCKET_PASSWORD = config('SHIPROCKET_PASSWORD')
+SHIPROCKET_BASE_URL = config('SHIPROCKET_BASE_URL', default='https://apiv2.shiprocket.in/v1/external')
+SHIPROCKET_PICKUP_LOCATION = config('SHIPROCKET_PICKUP_LOCATION', default='Primary')
+SHIPROCKET_WEBHOOK_TOKEN = config('SHIPROCKET_WEBHOOK_TOKEN', default='')
+SHOP_PINCODE = config('SHOP_PINCODE', default='673001')
+
 
 # AWS S3 Storage configuration
 USE_S3 = config('USE_S3', default=False, cast=bool)

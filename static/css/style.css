@@ -306,6 +306,49 @@ a:hover { color: var(--clr-black); }
 }
 
 /* ============================================================
+   SITE LOGO
+   ============================================================ */
+.site-logo {
+    height: auto;
+    width: 200px;
+    display: block;
+    object-fit: contain;
+}
+
+.logo-bar .site-logo {
+    filter: brightness(0);
+    height: auto;
+    width: 400px;
+}
+
+.site-logo--nav {
+    height: auto;
+    width: 150px;
+    display: block;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+}
+
+.site-logo--footer {
+    height: auto;
+    width: 180px;
+    display: block;
+    object-fit: contain;
+    filter: none;
+}
+
+@media (max-width: 991px) {
+    .site-logo { width: 160px; }
+    .logo-bar .site-logo { width: 160px; }
+    .site-logo--nav { width: 130px; }
+    .site-logo--footer { width: 150px; }
+}
+
+@media (max-width: 575px) {
+    .site-logo--nav { width: 110px; }
+    .site-logo--footer { width: 130px; }
+}
+/* ============================================================
    NAVBAR
    ============================================================ */
 .nav-bar {

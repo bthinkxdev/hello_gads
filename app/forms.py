@@ -41,6 +41,13 @@ class CheckoutForm(forms.Form):
         choices=[("cod", "Cash on Delivery"), ("razorpay", "Online Payment")],
         widget=forms.RadioSelect,
     )
+    is_open_box = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Request Open Box Delivery",
+        help_text="Delivery agent will wait while you open and inspect the package before accepting.",
+        widget=forms.CheckboxInput(attrs={"class": "form-checkbox"}),
+    )
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
@@ -117,6 +124,25 @@ class CheckoutForm(forms.Form):
             raise
         except Exception as e:
             raise forms.ValidationError("An error occurred. Please try again.")
+
+    def clean_pincode(self):
+        pincode = self.cleaned_data.get('pincode', '').strip()
+        
+        if not pincode:
+            raise forms.ValidationError('PIN code is required.')
+        
+        # Basic validation
+        cleaned_pincode = pincode.replace('-', '').replace(' ', '')
+        if not cleaned_pincode.isdigit():
+            raise forms.ValidationError('PIN code should contain only digits.')
+        if len(cleaned_pincode) != 6:
+            raise forms.ValidationError('PIN code must be exactly 6 digits.')
+        if cleaned_pincode[0] == '0':
+            raise forms.ValidationError('PIN code cannot start with 0.')
+        
+        # Store cleaned pincode
+        self.cleaned_data['pincode'] = cleaned_pincode
+        return cleaned_pincode
     
     def _validate_phone(self, phone):
         """Validate phone number"""
