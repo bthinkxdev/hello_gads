@@ -748,6 +748,7 @@ a:hover { color: var(--clr-black); }
 }
 .badge-new  { background: var(--clr-black); color: var(--clr-white); }
 .badge-sale { background: var(--clr-white); color: var(--clr-black); border: 1px solid var(--clr-black); }
+.badge-gst  { background: #0d6e0d; color: #fff; font-size: 0.7rem; }
 
 /* Wishlist icon */
 .product-wishlist {

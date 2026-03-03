@@ -159,6 +159,7 @@ BASIC_EDIT_FIELDS = [
     "category", "name", "slug", "description", "brand",
     "is_featured", "is_bestseller", "is_deal_of_day",
     "deal_of_day_start", "deal_of_day_end", "is_active",
+    "is_gst_applicable", "gst_percentage", "hsn_code",
 ]
 
 
@@ -179,6 +180,9 @@ class ProductBasicEditForm(forms.ModelForm):
             "deal_of_day_start": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
             "deal_of_day_end": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "is_gst_applicable": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "basic-is_gst_applicable"}),
+            "gst_percentage": forms.NumberInput(attrs={"class": "form-control", "placeholder": "0–28", "min": 0, "max": 28, "step": "0.01"}),
+            "hsn_code": forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. 8517", "maxlength": 20}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -188,9 +192,30 @@ class ProductBasicEditForm(forms.ModelForm):
         self.fields["brand"].required = False
         self.fields["deal_of_day_start"].required = False
         self.fields["deal_of_day_end"].required = False
+        self.fields["gst_percentage"].required = False
+        self.fields["hsn_code"].required = False
         active = Category.objects.filter(is_active=True)
         if self.instance and self.instance.pk and self.instance.category_id:
             current = self.instance.category
             if current and not current.is_active:
                 active = active | Category.objects.filter(pk=current.pk)
         self.fields["category"].queryset = active.order_by("name")
+
+    def clean(self):
+        cleaned = super().clean()
+        is_gst = cleaned.get("is_gst_applicable")
+        gst_pct = cleaned.get("gst_percentage")
+        if is_gst:
+            if gst_pct is None:
+                self.add_error("gst_percentage", "GST % is required when GST is applicable.")
+            else:
+                try:
+                    pct = float(gst_pct)
+                    if pct < 0 or pct > 28:
+                        self.add_error("gst_percentage", "GST % must be between 0 and 28.")
+                except (TypeError, ValueError):
+                    self.add_error("gst_percentage", "Enter a valid number.")
+        else:
+            if gst_pct is not None:
+                cleaned["gst_percentage"] = None
+        return cleaned

@@ -72,7 +72,15 @@
 
                 <div class="product-detail-price" id="productPriceBlock">
                     {% if selected_variant %}
-                    <span class="price-main">₹{{ selected_variant.price|floatformat:0 }}</span>
+                        {% if product.is_gst_applicable and product_gst_percentage is not None %}
+                        <div class="price-breakdown">
+                            <div>Base Price: <span class="price-main">₹{{ selected_variant.price|floatformat:2 }}</span></div>
+                            <div>GST ({{ product_gst_percentage }}%): <span class="price-gst">₹{{ product_detail_gst_amount|floatformat:2 }}</span></div>
+                            <div class="price-total-line">Total: <span class="price-main">₹{{ product_detail_total_with_gst|floatformat:2 }}</span></div>
+                        </div>
+                        {% else %}
+                        <span class="price-main">₹{{ selected_variant.price|floatformat:0 }}</span>
+                        {% endif %}
                     {% endif %}
                 </div>
 
@@ -699,8 +707,21 @@
 
         if (priceBlock) {
             var priceNumber = parseFloat(variant.price || '0');
-            var priceText = isNaN(priceNumber) ? variant.price : priceNumber.toFixed(0);
-            priceBlock.innerHTML = '<span class="price-main">₹' + priceText + '</span>';
+            var gstApplicable = variant.is_gst_applicable && variant.gst_percentage != null;
+            var gstPct = gstApplicable ? parseFloat(variant.gst_percentage) : 0;
+            if (gstApplicable && !isNaN(gstPct) && gstPct >= 0 && gstPct <= 28) {
+                var base = priceNumber;
+                var gstAmount = Math.round(base * gstPct / 100 * 100) / 100;
+                var total = Math.round((base + gstAmount) * 100) / 100;
+                priceBlock.innerHTML = '<div class="price-breakdown">' +
+                    '<div>Base Price: <span class="price-main">₹' + base.toFixed(2) + '</span></div>' +
+                    '<div>GST (' + gstPct + '%): <span class="price-gst">₹' + gstAmount.toFixed(2) + '</span></div>' +
+                    '<div class="price-total-line">Total: <span class="price-main">₹' + total.toFixed(2) + '</span></div>' +
+                    '</div>';
+            } else {
+                var priceText = isNaN(priceNumber) ? variant.price : priceNumber.toFixed(0);
+                priceBlock.innerHTML = '<span class="price-main">₹' + priceText + '</span>';
+            }
         }
 
         if (formVariantId) {

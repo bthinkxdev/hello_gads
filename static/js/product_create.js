@@ -64,10 +64,24 @@
                 ? (status.getAttribute("data-on") || "On")
                 : (status.getAttribute("data-off") || "Off");
         wrap.classList.toggle("checked", e.target.checked);
+        if (e.target.id === "basic-is_gst_applicable") {
+            var gstWrap = document.getElementById("gst-fields-wrap");
+            if (gstWrap) gstWrap.style.display = e.target.checked ? "" : "none";
+        }
     });
 
     document.getElementById("btn-create-basic").addEventListener("click", function () {
         var catSel = wrapper.querySelector('select[name="category"]');
+        var isGst = document.getElementById("basic-is_gst_applicable") && document.getElementById("basic-is_gst_applicable").checked;
+        var gstPctEl = document.getElementById("basic-gst_percentage");
+        var gstPctVal = (gstPctEl && gstPctEl.value.trim() !== "") ? gstPctEl.value.trim() : null;
+        if (isGst && gstPctVal != null) {
+            var num = parseFloat(gstPctVal);
+            if (isNaN(num) || num < 0 || num > 28) gstPctVal = null;
+        }
+        if (!isGst) gstPctVal = null;
+        var hsnEl = document.getElementById("basic-hsn_code");
+        var hsnVal = (hsnEl && hsnEl.value.trim() !== "") ? hsnEl.value.trim() : null;
         var payload = {
             name: (document.getElementById("basic-name").value || "").trim(),
             slug: (document.getElementById("basic-slug").value || "").trim() || null,
@@ -78,6 +92,9 @@
             is_deal_of_day: document.getElementById("basic-is_deal_of_day").checked,
             is_active: document.getElementById("basic-is_active").checked,
             category: catSel ? catSel.value : null,
+            is_gst_applicable: isGst,
+            gst_percentage: gstPctVal,
+            hsn_code: hsnVal,
         };
         if (!payload.name) {
             toast("Name is required.", "error");
@@ -85,6 +102,10 @@
         }
         if (!payload.category) {
             toast("Please select a category.", "error");
+            return;
+        }
+        if (payload.is_gst_applicable && (payload.gst_percentage == null || payload.gst_percentage === "")) {
+            toast("GST % must be between 0 and 28 when GST is applicable.", "error");
             return;
         }
         var btn = this;

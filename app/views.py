@@ -517,9 +517,25 @@ class ProductDetailView(DetailView):
                         "stock": v.stock_quantity,
                         "attributes": attr_map,
                         "image": primary_image_url,
+                        "is_gst_applicable": bool(product.is_gst_applicable),
+                        "gst_percentage": str(product.gst_percentage) if product.is_gst_applicable and product.gst_percentage is not None else None,
                     }
                 )
             context["variant_json"] = variant_json
+
+            # GST display for product detail (initial selected variant)
+            if selected_variant and getattr(product, "is_gst_applicable", False) and getattr(product, "gst_percentage", None) is not None:
+                from decimal import Decimal
+                gst_pct = product.gst_percentage
+                base = selected_variant.price
+                gst_amount = base * (gst_pct / Decimal("100"))
+                context["product_detail_gst_amount"] = gst_amount
+                context["product_detail_total_with_gst"] = base + gst_amount
+                context["product_gst_percentage"] = gst_pct
+            else:
+                context["product_detail_gst_amount"] = None
+                context["product_detail_total_with_gst"] = None
+                context["product_gst_percentage"] = None
 
             selected_attr_value_ids = []
             if selected_variant:
@@ -1222,7 +1238,7 @@ class CartView(TemplateView):
             context.update({
                 "cart": None,
                 "items": [],
-                "totals": {"subtotal": 0, "shipping": 0, "total": 0},
+                "totals": {"subtotal": 0, "gst_total": 0, "shipping": 0, "total": 0},
                 "update_form": CartUpdateForm(),
                 "active_page": "cart",
             })
@@ -1422,7 +1438,7 @@ class CheckoutView(TemplateView):
             context.update({
                 "cart": None,
                 "items": [],
-                "totals": {"subtotal": 0, "shipping": 0, "total": 0},
+                "totals": {"subtotal": 0, "gst_total": 0, "shipping": 0, "total": 0},
                 "form": CheckoutForm(user=user),
                 "addresses": [],
                 "default_address": None,

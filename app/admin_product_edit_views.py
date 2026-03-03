@@ -33,6 +33,10 @@ def _normalize_payload(data):
         data["deal_of_day_start"] = None
     if data.get("deal_of_day_end") == "":
         data["deal_of_day_end"] = None
+    if data.get("gst_percentage") == "" or data.get("gst_percentage") is None:
+        data["gst_percentage"] = None
+    if data.get("hsn_code") == "":
+        data["hsn_code"] = None
     return data
 
 

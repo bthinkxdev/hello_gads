@@ -10,6 +10,9 @@
         {% elif product.is_featured %}
             <span class="product-badge badge-new">Featured</span>
         {% endif %}
+        {% if product.is_gst_applicable %}
+            <span class="product-badge badge-gst" title="Inclusive of GST">GST</span>
+        {% endif %}
         <a href="{% url 'store:product_detail' product.slug %}?variant={{ v.id }}">
             {% with imgs=v.images.all %}
                 {% if imgs %}

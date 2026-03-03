@@ -89,6 +89,29 @@
                 <textarea class="form-control" id="basic-description" rows="5">{{ product.description }}</textarea>
             </div>
 
+            <!-- GST (India) -->
+            <div class="form-group" style="margin-top: 1rem;">
+                <label class="toggle-wrap{% if product.is_gst_applicable %} checked{% endif %}" for="basic-is_gst_applicable">
+                    <input type="checkbox" class="toggle-input" id="basic-is_gst_applicable" {% if product.is_gst_applicable %}checked{% endif %}>
+                    <span class="toggle-track"><span class="toggle-knob"></span></span>
+                    <span class="toggle-label">GST applicable</span>
+                    <span class="toggle-status" data-on="Yes" data-off="No">{% if product.is_gst_applicable %}Yes{% else %}No{% endif %}</span>
+                </label>
+                <div id="gst-fields-wrap" class="gst-fields-wrap" style="margin-top: 0.75rem; {% if not product.is_gst_applicable %}display: none;{% endif %}">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label" for="basic-gst_percentage">GST % <span class="req">*</span></label>
+                            <input type="number" class="form-control" id="basic-gst_percentage" step="0.01" min="0" max="28" placeholder="0–28" value="{{ product.gst_percentage|default:'' }}">
+                            <span class="form-hint">0–28 (e.g. 18 for 18%)</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="basic-hsn_code">HSN code</label>
+                            <input type="text" class="form-control" id="basic-hsn_code" maxlength="20" placeholder="e.g. 8517" value="{{ product.hsn_code|default:'' }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Flags row -->
             <div class="toggle-grid">
                 <label class="toggle-wrap{% if product.is_active %} checked{% endif %}" for="basic-is_active">

@@ -101,6 +101,11 @@
                 ? (status.getAttribute("data-on") || "On")
                 : (status.getAttribute("data-off") || "Off");
         wrap.classList.toggle("checked", e.target.checked);
+        // GST fields visibility
+        if (e.target.id === "basic-is_gst_applicable") {
+            var gstWrap = document.getElementById("gst-fields-wrap");
+            if (gstWrap) gstWrap.style.display = e.target.checked ? "" : "none";
+        }
     });
 
     // --- Section 1: Basic ---
@@ -111,6 +116,18 @@
 
     function getBasicValues() {
         var catSel = basicForm ? basicForm.querySelector('select[name="category"]') : null;
+        var isGst = document.getElementById("basic-is_gst_applicable") ? document.getElementById("basic-is_gst_applicable").checked : false;
+        var gstPctEl = document.getElementById("basic-gst_percentage");
+        var hsnEl = document.getElementById("basic-hsn_code");
+        var gstPct = (gstPctEl && gstPctEl.value.trim() !== "") ? gstPctEl.value : null;
+        if (gstPct !== null) {
+            var num = parseFloat(gstPct);
+            if (isNaN(num) || num < 0 || num > 28) gstPct = null;
+        }
+        var hsn = (hsnEl && hsnEl.value.trim() !== "") ? hsnEl.value.trim() : null;
+        if (!isGst) {
+            gstPct = null;
+        }
         return {
             name: (document.getElementById("basic-name") && document.getElementById("basic-name").value) || "",
             slug: (document.getElementById("basic-slug") && document.getElementById("basic-slug").value) || "",
@@ -121,6 +138,9 @@
             is_deal_of_day: document.getElementById("basic-is_deal_of_day") ? document.getElementById("basic-is_deal_of_day").checked : false,
             is_active: document.getElementById("basic-is_active") ? document.getElementById("basic-is_active").checked : true,
             category: catSel ? catSel.value : null,
+            is_gst_applicable: isGst,
+            gst_percentage: gstPct,
+            hsn_code: hsn,
         };
     }
 
@@ -138,7 +158,10 @@
             cur.is_bestseller !== basicInitial.is_bestseller ||
             cur.is_deal_of_day !== basicInitial.is_deal_of_day ||
             cur.is_active !== basicInitial.is_active ||
-            cur.category !== basicInitial.category
+            cur.category !== basicInitial.category ||
+            cur.is_gst_applicable !== basicInitial.is_gst_applicable ||
+            (cur.gst_percentage || "") !== (basicInitial.gst_percentage || "") ||
+            (cur.hsn_code || "") !== (basicInitial.hsn_code || "")
         );
     }
     function updateBasicSaveButton() {
@@ -161,6 +184,13 @@
             if (!payload.category) {
                 toast("Category is required.", "error");
                 return;
+            }
+            if (payload.is_gst_applicable) {
+                var pct = payload.gst_percentage != null ? parseFloat(payload.gst_percentage) : NaN;
+                if (isNaN(pct) || pct < 0 || pct > 28) {
+                    toast("GST % must be between 0 and 28 when GST is applicable.", "error");
+                    return;
+                }
             }
             basicSaveBtn.disabled = true;
             basicFeedback.textContent = "Saving…";

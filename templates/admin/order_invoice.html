@@ -234,6 +234,12 @@
                     <td>Subtotal:</td>
                     <td>₹{{ order.subtotal }}</td>
                 </tr>
+                {% if order.gst_total and order.gst_total > 0 %}
+                <tr>
+                    <td>GST:</td>
+                    <td>₹{{ order.gst_total }}</td>
+                </tr>
+                {% endif %}
                 <tr>
                     <td>Shipping:</td>
                     <td>{% if order.shipping == 0 %}FREE{% else %}₹{{ order.shipping }}{% endif %}</td>

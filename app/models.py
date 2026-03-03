@@ -1,5 +1,8 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Avg, Count
@@ -88,6 +91,13 @@ class Product(TimeStampedModel):
         default=0,
         help_text="Total number of approved, non-deleted reviews.",
     )
+    # GST (India): optional per product
+    is_gst_applicable = models.BooleanField(default=False, db_index=True)
+    gst_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="GST %% (0-28). Required when is_gst_applicable is True.",
+    )
+    hsn_code = models.CharField(max_length=20, blank=True, null=True)
 
     objects = ProductQuerySet.as_manager()
 
@@ -100,6 +110,25 @@ class Product(TimeStampedModel):
             models.Index(fields=["category", "is_active"]),
             models.Index(fields=["is_active", "brand"]),
         ]
+
+    def clean(self):
+        super().clean()
+        if self.is_gst_applicable:
+            if self.gst_percentage is None:
+                raise ValidationError({"gst_percentage": "GST %% is required when GST is applicable."})
+            try:
+                pct = Decimal(str(self.gst_percentage))
+                if pct < 0 or pct > 28:
+                    raise ValidationError(
+                        {"gst_percentage": "GST %% must be between 0 and 28."}
+                    )
+            except (TypeError, ValueError):
+                raise ValidationError({"gst_percentage": "Enter a valid GST percentage."})
+        else:
+            if self.gst_percentage is not None:
+                raise ValidationError(
+                    {"gst_percentage": "Clear GST %% when GST is not applicable."}
+                )
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -308,6 +337,38 @@ class Cart(TimeStampedModel):
     def subtotal(self):
         return sum(item.line_total for item in self.items.select_related("product"))
 
+    def _get_gst_aggregates(self):
+        """Returns (taxable_total, non_taxable_total, gst_total) from items. One pass."""
+        from decimal import Decimal
+        taxable = Decimal("0")
+        non_taxable = Decimal("0")
+        gst_total = Decimal("0")
+        for item in self.items.select_related("product"):
+            line = item.line_total
+            if getattr(item.product, "is_gst_applicable", False) and getattr(item.product, "gst_percentage", None) is not None:
+                taxable += line
+                pct = item.product.gst_percentage
+                gst_total += line * (pct / Decimal("100"))
+            else:
+                non_taxable += line
+        return taxable, non_taxable, gst_total
+
+    @property
+    def taxable_total(self):
+        return self._get_gst_aggregates()[0]
+
+    @property
+    def non_taxable_total(self):
+        return self._get_gst_aggregates()[1]
+
+    @property
+    def gst_total(self):
+        return self._get_gst_aggregates()[2]
+
+    @property
+    def grand_total(self):
+        return self.subtotal + self.gst_total
+
 
 class CartItem(TimeStampedModel):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
@@ -378,6 +439,10 @@ class Order(TimeStampedModel):
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.PLACED, db_index=True)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     shipping = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    gst_total = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    cgst = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    sgst = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    igst = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
     total = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     address = models.ForeignKey(Address, on_delete=models.PROTECT, related_name="orders")
 
@@ -398,6 +463,19 @@ class OrderItem(TimeStampedModel):
     variant_snapshot = models.CharField(max_length=255)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    # Invoice / GST snapshot (for GST products only)
+    hsn_code = models.CharField(max_length=20, blank=True, null=True)
+    gst_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+    )
+    taxable_value = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text="Line taxable value (unit_price * qty) for GST lines.",
+    )
+    gst_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text="GST amount for this line.",
+    )
 
     @property
     def line_total(self):

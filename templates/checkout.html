@@ -140,6 +140,9 @@
                         {% endfor %}
 
                         <div class="order-total-row"><span>Subtotal</span><span>₹{{ totals.subtotal }}</span></div>
+                        {% if totals.gst_total and totals.gst_total > 0 %}
+                        <div class="order-total-row"><span>GST Total</span><span>₹{{ totals.gst_total }}</span></div>
+                        {% endif %}
                         <div class="order-total-row"><span>Shipping</span><span style="font-weight:700;color:var(--clr-black);">{% if totals.shipping == 0 %}Free{% else %}₹{{ totals.shipping }}{% endif %}</span></div>
                         <div class="order-grand-total">
                             <span class="label">Total</span>

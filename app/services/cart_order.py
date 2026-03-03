@@ -95,6 +95,7 @@ class StockError(CartError):
 @dataclass
 class CartTotals:
     subtotal: object
+    gst_total: object
     shipping: object
     total: object
 
@@ -169,13 +170,14 @@ class CartService:
     def compute_totals(cart):
         try:
             subtotal = sum(item.line_total for item in cart.items.select_related("product"))
+            gst_total = cart.gst_total
             FREE_SHIPPING_THRESHOLD = getattr(settings, "FREE_SHIPPING_ABOVE", 499)
             delivery_charge = getattr(settings, "FLAT_DELIVERY_CHARGE", 80)
             shipping = 0 if subtotal >= FREE_SHIPPING_THRESHOLD else delivery_charge
-            total = subtotal + shipping
-            return CartTotals(subtotal=subtotal, shipping=shipping, total=total)
+            total = subtotal + gst_total + shipping
+            return CartTotals(subtotal=subtotal, gst_total=gst_total, shipping=shipping, total=total)
         except Exception:
-            return CartTotals(subtotal=0, shipping=0, total=0)
+            return CartTotals(subtotal=0, gst_total=0, shipping=0, total=0)
 
     @staticmethod
     def add_item(cart, variant, quantity):
@@ -289,11 +291,25 @@ class OrderService:
 
         totals = CartService.compute_totals(cart)
         order_number = cls._generate_order_number()
+        gst_total = getattr(totals, "gst_total", 0) or 0
+        state = (address.state or "").strip()
+        if state and state.lower() == "kerala":
+            cgst = gst_total / 2
+            sgst = gst_total / 2
+            igst = 0
+        else:
+            cgst = 0
+            sgst = 0
+            igst = gst_total
         order = Order.objects.create(
             user=cart.user if cart.user else None,
             order_number=order_number,
             subtotal=totals.subtotal,
             shipping=totals.shipping,
+            gst_total=gst_total,
+            cgst=cgst,
+            sgst=sgst,
+            igst=igst,
             total=totals.total,
             address=address,
         )
@@ -301,15 +317,30 @@ class OrderService:
         for item in items:
             v = item.selected_variant
             snapshot = v.get_attribute_values_display() if v else item.product.name
+            product = item.product
+            taxable_value = 0
+            gst_amount = 0
+            hsn_code = None
+            gst_percentage = None
+            if getattr(product, "is_gst_applicable", False) and getattr(product, "gst_percentage", None) is not None:
+                from decimal import Decimal
+                taxable_value = item.unit_price * item.quantity
+                gst_amount = taxable_value * (product.gst_percentage / Decimal("100"))
+                hsn_code = getattr(product, "hsn_code", None) or None
+                gst_percentage = product.gst_percentage
 
             OrderItem.objects.create(
                 order=order,
-                product=item.product,
+                product=product,
                 selected_variant=v,
-                product_name=item.product.name,
-                variant_snapshot=snapshot or item.product.name,
+                product_name=product.name,
+                variant_snapshot=snapshot or product.name,
                 unit_price=item.unit_price,
                 quantity=item.quantity,
+                hsn_code=hsn_code,
+                gst_percentage=gst_percentage,
+                taxable_value=taxable_value,
+                gst_amount=gst_amount,
             )
             if form_data.get("payment") != Payment.Method.RAZORPAY:
                 Variant.objects.filter(pk=item.selected_variant_id).update(
