@@ -275,7 +275,7 @@ class OrderService:
 
     @classmethod
     @transaction.atomic
-    def create_order(cls, cart, form_data, user=None, clear_cart=True):
+    def create_order(cls, cart, form_data, user=None, clear_cart=True, shipping_charge=None):
         if cart.status != Cart.Status.ACTIVE:
             raise CartError("This cart has already been used for an order.")
         items = (
@@ -371,7 +371,25 @@ class OrderService:
                 is_snapshot=True,
             )
 
-        totals = CartService.compute_totals(cart, payment_method=form_data.get("payment"))
+        if shipping_charge is not None:
+            try:
+                from decimal import Decimal
+                subtotal = sum(item.line_total for item in cart.items.select_related("product"))
+                gst_total = cart.gst_total
+                shipping = Decimal(str(shipping_charge))
+                cod_fee = Decimal("0")
+                total = subtotal + shipping + cod_fee + gst_total
+                totals = CartTotals(
+                    subtotal=subtotal,
+                    gst_total=gst_total,
+                    shipping=shipping,
+                    cod_fee=cod_fee,
+                    total=total,
+                )
+            except Exception:
+                totals = CartService.compute_totals(cart, payment_method=form_data.get("payment"))
+        else:
+            totals = CartService.compute_totals(cart, payment_method=form_data.get("payment"))
         order_number = cls._generate_order_number()
         gst_total = getattr(totals, "gst_total", 0) or 0
         state = (address.state or "").strip()

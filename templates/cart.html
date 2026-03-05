@@ -91,10 +91,10 @@
                         <span>₹{{ totals.gst_total }}</span>
                     </div>
                     {% endif %}
-                    <div class="cart-summary-row">
+                    {% comment %} <div class="cart-summary-row">
                         <span>Shipping</span>
                         <span>{% if totals.shipping == 0 %}Free{% else %}₹{{ totals.shipping }}{% endif %}</span>
-                    </div>
+                    </div> {% endcomment %}
                     <div class="cart-summary-total">
                         <span class="label">Grand Total</span>
                         <span class="amount">₹{{ totals.total }}</span>

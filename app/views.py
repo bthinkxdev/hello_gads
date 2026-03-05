@@ -1534,7 +1534,13 @@ class OrderCreateView(FormView):
                     form.cleaned_data["is_open_box"] = False
 
         try:
-            order = OrderService.create_order(cart, form.cleaned_data, user=order_user, clear_cart=True)
+            order = OrderService.create_order(
+                        cart,
+                        form.cleaned_data,
+                        user=order_user,
+                        clear_cart=True,
+                        shipping_charge=self.request.POST.get("shipping_charge")
+                    )
         except (CartError, StockError) as exc:
             messages.error(self.request, str(exc))
             return redirect("store:checkout")
@@ -1586,7 +1592,13 @@ class CreateRazorpayOrderView(View):
                             status=400,
                         )
 
-                order = OrderService.create_order(cart, cleaned, user=user, clear_cart=False)
+                order = OrderService.create_order(
+                            cart,
+                            cleaned,
+                            user=user,
+                            clear_cart=False,
+                            shipping_charge=request.POST.get("shipping_charge")
+                        )
                 order.status = Order.Status.PLACED
                 order.save(update_fields=["status"])
 
