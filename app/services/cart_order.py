@@ -45,7 +45,7 @@ def send_order_notification_email(order, request=None):
             if request:
                 order_url = request.build_absolute_uri(f'/dashboard/orders/{order.order_number}/')
             else:
-                site_domain = getattr(settings, 'SITE_DOMAIN', 'https://queenorange.shop/')
+                site_domain = getattr(settings, 'SITE_DOMAIN', 'https://www.hellogads.com')
                 order_url = f"{site_domain}/dashboard/orders/{order.order_number}/"
         except Exception:
             order_url = f"Order #{order.order_number}"

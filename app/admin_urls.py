@@ -87,4 +87,6 @@ urlpatterns = [
 
     # Reviews
     path("reviews/", admin_views.ReviewListView.as_view(), name="review_list"),
+    path("reviews/create/", admin_views.ReviewCreateView.as_view(), name="review_create"),
+    path("reviews/<int:pk>/edit/", admin_views.ReviewUpdateView.as_view(), name="review_edit"),
 ]

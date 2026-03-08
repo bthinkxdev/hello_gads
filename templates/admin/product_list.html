@@ -385,7 +385,9 @@
             } else {
                 if (typeof showAdminToast === 'function')
                     showAdminToast(res.is_active ? 'Product is now live.' : 'Product set to inactive.');
-                window.location.reload();
+                setTimeout(function () {
+                    window.location.reload();
+                }, 2000);
             }
         }).catch(function () {
             wrap.querySelector('.toggle-input').checked = prevChecked;

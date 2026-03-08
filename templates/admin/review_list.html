@@ -36,27 +36,35 @@
 
 {% block content %}
 <div class="reviews-admin-page">
-    <div class="card">
-        <div class="card-header">
-            <div>
-                <h2 class="card-title mb-0">Ratings &amp; Reviews</h2>
-                <p class="card-subtitle" style="color: var(--gray-600); font-size: 0.9rem;">
-                    Moderate customer feedback across all products.
-                </p>
+        <div class="card">
+            <div class="card-header d-flex justify-between align-center">
+                <div>
+                    <h2 class="card-title mb-0">Ratings &amp; Reviews</h2>
+                    <p class="card-subtitle" style="color: var(--gray-600); font-size: 0.9rem;">
+                        Moderate customer feedback across all products.
+                    </p>
+                </div>
+                <div class="d-flex gap-1">
+                    <a href="{% url 'admin_panel:review_create' %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus"></i>
+                        <span>Add review</span>
+                    </a>
+                </div>
             </div>
-        </div>
 
         <div class="card-body">
             <form method="get" class="filters filters-inline reviews-filters mb-2">
                 <div class="search-box">
                     <label class="form-label" for="id_q">Search (product, user)</label>
-                    <i class="fas fa-search"></i>
-                    <input type="text"
-                           id="id_q"
-                           name="q"
-                           class="form-control"
-                           value="{{ filter_q }}"
-                           placeholder="Search by product or user">
+                    <div class="search-box-inner">
+                        <i class="fas fa-search"></i>
+                        <input type="text"
+                               id="id_q"
+                               name="q"
+                               class="form-control"
+                               value="{{ filter_q }}"
+                               placeholder="Search by product or user">
+                    </div>
                 </div>
 
                 <div class="filter-group">
@@ -147,6 +155,7 @@
                                 <th>Title &amp; Comment</th>
                                 <th>Status</th>
                                 <th>Date</th>
+                                <th style="width: 120px; text-align: right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -207,6 +216,23 @@
                                         <div>{{ review.created_at|date:"M j, Y" }}</div>
                                         <div style="color: var(--gray-500); font-size: 0.8rem;">
                                             {{ review.created_at|time:"H:i" }}
+                                        </div>
+                                    </td>
+                                    <td data-label="Actions" style="text-align: right;">
+                                        <div class="reviews-actions">
+                                            <a href="{% url 'admin_panel:review_edit' review.id %}"
+                                               class="btn btn-secondary btn-sm"
+                                               title="Edit review">
+                                                <i class="fas fa-pen"></i>
+                                            </a>
+                                            <button type="submit"
+                                                    name="single_delete"
+                                                    value="{{ review.id }}"
+                                                    class="btn btn-danger btn-sm"
+                                                    onclick="return confirm('Delete this review?');"
+                                                    title="Delete review">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>

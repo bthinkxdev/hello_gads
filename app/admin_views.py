@@ -44,6 +44,7 @@ from django.conf import settings
 
 from .admin_forms import (
     AdminLoginForm,
+    AdminReviewForm,
     BannerForm,
     CategoryForm,
     ProductBasicEditForm,
@@ -1226,11 +1227,35 @@ class ReviewListView(StaffRequiredMixin, TemplateView):
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         """
-        Handle bulk moderation actions:
-        - approve
-        - unapprove
-        - delete (soft delete)
+        Handle moderation actions:
+        - Single delete from row actions.
+        - Bulk actions: approve, unapprove, delete (soft delete).
         """
+
+        # Single-row delete (from actions column)
+        single_delete_id = request.POST.get("single_delete")
+        if single_delete_id:
+            try:
+                review_id = int(single_delete_id)
+                review = (
+                    Review.objects.select_for_update()
+                    .select_related("product")
+                    .get(pk=review_id)
+                )
+            except (ValueError, TypeError, Review.DoesNotExist):
+                messages.error(request, "Review not found.")
+                return redirect("admin_panel:review_list")
+
+            if not review.is_deleted:
+                review.is_deleted = True
+                review.save(update_fields=["is_deleted"])
+                messages.success(request, "Review deleted.")
+            else:
+                messages.info(request, "Review was already deleted.")
+
+            return redirect("admin_panel:review_list")
+
+        # Bulk actions
         action = request.POST.get("action")
         ids = request.POST.getlist("selected")
         if not action or not ids:
@@ -1281,6 +1306,67 @@ class ReviewListView(StaffRequiredMixin, TemplateView):
 
         # Product aggregates are kept in sync by Review model signals
         return redirect("admin_panel:review_list")
+
+
+class ReviewCreateView(StaffRequiredMixin, View):
+    template_name = "admin/review_form.html"
+
+    def get(self, request, *args, **kwargs):
+        form = AdminReviewForm(initial={"is_approved": True})
+        context = {
+            "form": form,
+            "page_title": "Create Review",
+            "active_menu": "reviews",
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request, *args, **kwargs):
+        form = AdminReviewForm(request.POST)
+        if form.is_valid():
+            review = form.save()
+            messages.success(request, "Review created successfully.")
+            return redirect("admin_panel:review_list")
+
+        context = {
+            "form": form,
+            "page_title": "Create Review",
+            "active_menu": "reviews",
+        }
+        return render(request, self.template_name, context)
+
+
+class ReviewUpdateView(StaffRequiredMixin, View):
+    template_name = "admin/review_form.html"
+
+    def get_object(self, pk):
+        return get_object_or_404(Review, pk=pk)
+
+    def get(self, request, pk, *args, **kwargs):
+        review = self.get_object(pk)
+        form = AdminReviewForm(instance=review)
+        context = {
+            "form": form,
+            "page_title": "Edit Review",
+            "review": review,
+            "active_menu": "reviews",
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request, pk, *args, **kwargs):
+        review = self.get_object(pk)
+        form = AdminReviewForm(request.POST, instance=review)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Review updated successfully.")
+            return redirect("admin_panel:review_list")
+
+        context = {
+            "form": form,
+            "page_title": "Edit Review",
+            "review": review,
+            "active_menu": "reviews",
+        }
+        return render(request, self.template_name, context)
 
 class ShipmentRetryView(StaffRequiredMixin, View):
     def post(self, request, order_number):

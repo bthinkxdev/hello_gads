@@ -229,11 +229,11 @@ if USE_S3:
     # S3 object tags for billing/cost monitoring (applied to every media upload)
     # Optional .env: AWS_S3_TAG_PROJECT, AWS_S3_TAG_APP, AWS_S3_CLIENT_TAG
     _s3_tag_dict = {
-        'project': config('AWS_S3_TAG_PROJECT', default='queen-orange'),
+        'project': config('AWS_S3_TAG_PROJECT', default='hellogads'),
         'app': config('AWS_S3_TAG_APP', default='media'),
     }
 
-    AWS_S3_CLIENT_TAG= config('AWS_S3_CLIENT_TAG', default='queen-orange')
+    AWS_S3_CLIENT_TAG= config('AWS_S3_CLIENT_TAG', default='hellogads')
     if AWS_S3_CLIENT_TAG:
         _s3_tag_dict['client'] = AWS_S3_CLIENT_TAG
     from s3_tagging_utils import build_safe_tags
@@ -257,8 +257,8 @@ if USE_S3:
         },
     }
     # Public base URL for media files in S3:
-    # files will be stored under: queen-orange/media/<upload_to>/<filename>
-    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/queen-orange/media/"
+    # files will be stored under: hellogads/media/<upload_to>/<filename>
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/hellogads/media/"
 else:
     # Local file storage for everything
     STORAGES = {

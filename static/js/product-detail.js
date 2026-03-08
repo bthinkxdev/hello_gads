@@ -1,4 +1,4 @@
-// Queen Orange - Product Detail Page
+// Hello Gads - Product Detail Page
 
 const sizeColorStock = window.sizeColorStock || {};
 const useColorVariants = window.useColorVariants || false;

@@ -4,7 +4,7 @@ from django import forms
 from django.conf import settings
 from django.forms.formsets import DELETION_FIELD_NAME
 
-from .models import Banner, Category, Product
+from .models import Banner, Category, Product, Review
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,61 @@ class AdminLoginForm(forms.Form):
             "autocomplete": "current-password"
         })
     )
+
+
+class AdminReviewForm(forms.ModelForm):
+    """
+    Admin-facing form for creating and editing reviews.
+    Gives staff full control over product, user, rating and moderation flags.
+    """
+
+    class Meta:
+        model = Review
+        fields = [
+            "product",
+            "user",
+            "order",
+            "rating",
+            "title",
+            "comment",
+            "is_approved",
+            "is_deleted",
+        ]
+        widgets = {
+            "product": forms.Select(attrs={"class": "form-control"}),
+            "user": forms.Select(attrs={"class": "form-control"}),
+            "order": forms.Select(attrs={"class": "form-control"}),
+            "rating": forms.NumberInput(
+                attrs={"class": "form-control", "min": 1, "max": 5}
+            ),
+            "title": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Optional title (shown on product page)",
+                }
+            ),
+            "comment": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Optional detailed feedback",
+                }
+            ),
+            "is_approved": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "is_deleted": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def clean_rating(self):
+        rating = self.cleaned_data.get("rating")
+        if rating is None:
+            raise forms.ValidationError("Rating is required.")
+        try:
+            rating_int = int(rating)
+        except (TypeError, ValueError):
+            raise forms.ValidationError("Invalid rating value.")
+        if rating_int < 1 or rating_int > 5:
+            raise forms.ValidationError("Rating must be between 1 and 5 stars.")
+        return rating_int
 
 
 class CategoryForm(forms.ModelForm):

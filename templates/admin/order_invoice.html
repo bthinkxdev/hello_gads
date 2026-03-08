@@ -168,9 +168,9 @@
                 <div class="company-tagline">Premium Women's & Baby Clothing</div>
                 <div class="company-details">
                     Email: {{ site_email|default:"achujozefsl0709@gmail.com" }}<br>
-                    <span class="contact-row">Phone: {{ site_phone|default:"+91 62384 39926" }}</span><br>
-                    <span class="contact-row">WhatsApp: <a href="https://wa.me/{{ site_whatsapp|default:'916238439926' }}" style="color:#25D366;">{{ site_phone|default:"+91 62384 39926" }}</a></span><br>
-                    Website: www.queenorange.com
+                    <span class="contact-row">Phone: {{ site_phone|default:"+91 80864 11143" }}</span><br>
+                    <span class="contact-row">WhatsApp: <a href="https://wa.me/{{ site_whatsapp|default:'918086411143' }}" style="color:#25D366;">{{ site_phone|default:"+91 80864 11143" }}</a></span><br>
+                    Website: www.hellogads.com
                 </div>
             </div>
             <div class="invoice-meta">
@@ -239,6 +239,18 @@
                     <td>GST:</td>
                     <td>₹{{ order.gst_total }}</td>
                 </tr>
+                <tr>
+                    <td style="font-size: 8pt; color:#666;">Tax breakup</td>
+                    <td style="font-size: 8pt; color:#666;">
+                        {% if order.cgst %}CGST: ₹{{ order.cgst }}{% endif %}
+                        {% if order.sgst %}
+                            {% if order.cgst %} · {% endif %}SGST: ₹{{ order.sgst }}
+                        {% endif %}
+                        {% if order.igst %}
+                            {% if order.cgst or order.sgst %} · {% endif %}IGST: ₹{{ order.igst }}
+                        {% endif %}
+                    </td>
+                </tr>
                 {% endif %}
                 <tr>
                     <td>Shipping:</td>
@@ -259,10 +271,10 @@
                     Status: <span class="payment-badge {% if order.payment.status == 'paid' %}paid{% else %}pending{% endif %}">{{ order.payment.get_status_display }}</span>
                 </div>
             </div>
-            <div class="notes-section">
-                <div class="notes-title">Terms</div>
-                <div class="notes-content">Quality guarantee • Contact: {{ site_phone|default:"+91 62384 39926" }} / WhatsApp • Thank you for shopping with Hello Gads!</div>
-            </div>
+                <div class="notes-section">
+                    <div class="notes-title">Terms</div>
+                    <div class="notes-content">Quality guarantee • Contact: {{ site_phone|default:"+91 80864 11143" }} / WhatsApp • Thank you for shopping with Hello Gads!</div>
+                </div>
             <div class="thank-you">Thank you for your purchase! 🌟</div>
         </div>
     </div>

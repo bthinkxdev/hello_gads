@@ -40,7 +40,14 @@
 
                 <div class="form-group">
                     <label class="form-label">Password</label>
-                    {{ form.password }}
+                    <div class="password-field">
+                        {{ form.password }}
+                        <button type="button"
+                                class="password-toggle"
+                                aria-label="Show or hide password">
+                            <i class="far fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary" style="width: 100%;">
@@ -56,6 +63,28 @@
             </div>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const passwordFieldWrapper = document.querySelector('.password-field');
+            if (!passwordFieldWrapper) return;
+
+            const input = passwordFieldWrapper.querySelector('input[type="password"], input[type="text"]');
+            const toggle = passwordFieldWrapper.querySelector('.password-toggle');
+            if (!input || !toggle) return;
+
+            toggle.addEventListener('click', function () {
+                const isPassword = input.type === 'password';
+                input.type = isPassword ? 'text' : 'password';
+
+                const icon = toggle.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-eye');
+                    icon.classList.toggle('fa-eye-slash');
+                }
+            });
+        });
+    </script>
 </body>
 </html>
 

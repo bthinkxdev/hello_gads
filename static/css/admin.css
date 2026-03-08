@@ -721,6 +721,99 @@ html, body {
     color: var(--gray-500);
 }
 
+/* Ratings & Reviews filters — align nicely in a single row */
+.reviews-filters {
+    align-items: flex-end;
+}
+
+.reviews-filters .form-label {
+    margin-bottom: 0.35rem;
+    font-size: 0.85rem;
+}
+
+.reviews-filters .filter-group,
+.reviews-filters .search-box {
+    margin-bottom: 0;
+}
+
+.reviews-filters .search-box-inner {
+    position: relative;
+}
+
+.reviews-filters .search-box-inner .form-control {
+    padding-left: 2.75rem;
+}
+
+.reviews-filters .search-box-inner i {
+    position: absolute;
+    left: 0.9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--gray-500);
+    pointer-events: none;
+}
+
+.reviews-bulk-actions {
+    justify-content: space-between;
+}
+
+.reviews-bulk-actions .reviews-action-select {
+    max-width: 220px;
+}
+
+.reviews-actions {
+    display: inline-flex;
+    gap: 0.35rem;
+}
+
+.reviews-actions .btn-sm {
+    min-width: 34px;
+}
+
+/* Ratings & Reviews – mobile alignment polish */
+@media (max-width: 768px) {
+    .reviews-admin-page .card {
+        margin-left: -0.5rem;
+        margin-right: -0.5rem;
+        border-radius: 0;
+    }
+
+    .reviews-filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .reviews-filters .search-box,
+    .reviews-filters .filter-group {
+        flex: 1 1 100%;
+        min-width: 100%;
+    }
+
+    .reviews-bulk-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+
+    .reviews-bulk-actions .reviews-action-select,
+    .reviews-bulk-actions .reviews-apply-btn {
+        width: 100%;
+    }
+
+    .reviews-bulk-actions .reviews-count-text {
+        width: 100%;
+        text-align: left;
+    }
+
+    .reviews-table-wrap {
+        margin-top: 0.75rem;
+    }
+
+    .reviews-actions {
+        justify-content: flex-end;
+    }
+}
+
 /* ============================================
    PAGINATION
    ============================================ */
@@ -806,6 +899,34 @@ html, body {
 
 .login-subtitle {
     letter-spacing: 0.02em;
+}
+
+/* Password field with eye toggle */
+.password-field {
+    position: relative;
+}
+
+.password-field .form-control {
+    padding-right: 2.75rem;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--gray-500);
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.password-toggle:hover {
+    color: var(--gray-700);
 }
 
 /* ============================================

@@ -254,6 +254,8 @@
                         <th>Variant</th>
                         <th>Unit Price</th>
                         <th>Quantity</th>
+                        <th>Taxable</th>
+                        <th>GST</th>
                         <th>Total</th>
                     </tr>
                 </thead>
@@ -264,6 +266,20 @@
                             <td>{{ item.variant_snapshot }}</td>
                             <td>₹{{ item.unit_price }}</td>
                             <td>{{ item.quantity }}</td>
+                            <td>
+                                {% if item.taxable_value %}
+                                    ₹{{ item.taxable_value }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.gst_amount %}
+                                    ₹{{ item.gst_amount }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
                             <td style="font-weight: 600;">₹{{ item.line_total }}</td>
                         </tr>
                     {% endfor %}
@@ -277,6 +293,24 @@
                 <span>Subtotal</span>
                 <span class="amount">₹{{ order.subtotal }}</span>
             </div>
+            {% if order.gst_total and order.gst_total > 0 %}
+            <div class="order-detail-totals-row">
+                <span>GST</span>
+                <span class="amount">₹{{ order.gst_total }}</span>
+            </div>
+            <div class="order-detail-totals-row" style="font-size: 0.8rem; color: #6b7280;">
+                <span>Tax breakup</span>
+                <span class="amount">
+                    {% if order.cgst %}CGST: ₹{{ order.cgst }}{% endif %}
+                    {% if order.sgst %}
+                        {% if order.cgst %} · {% endif %}SGST: ₹{{ order.sgst }}
+                    {% endif %}
+                    {% if order.igst %}
+                        {% if order.cgst or order.sgst %} · {% endif %}IGST: ₹{{ order.igst }}
+                    {% endif %}
+                </span>
+            </div>
+            {% endif %}
             <div class="order-detail-totals-row">
                 <span>Shipping</span>
                 <span class="amount">₹{{ order.shipping }}</span>
@@ -292,8 +326,8 @@
 <div class="order-detail-footer">
     <div class="order-detail-contact">
         <strong>Store Contact:</strong>
-        <a href="tel:{{ site_phone|default:'+916238439926' }}">{{ site_phone|default:'+91 62384 39926' }}</a>
-        <a href="https://wa.me/{{ site_whatsapp|default:'916238439926' }}" target="_blank" class="order-detail-whatsapp-link" aria-label="WhatsApp store" title="Contact us on WhatsApp">
+        <a href="tel:{{ site_phone|default:'+918086411143' }}">{{ site_phone|default:'+91 80864 11143' }}</a>
+        <a href="https://wa.me/{{ site_whatsapp|default:'918086411143' }}" target="_blank" class="order-detail-whatsapp-link" aria-label="WhatsApp store" title="Contact us on WhatsApp">
             <i class="fab fa-whatsapp"></i> WhatsApp
         </a>
     </div>
