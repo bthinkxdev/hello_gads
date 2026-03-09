@@ -1,6 +1,6 @@
 /**
  * Admin product list: Add Variant modal (AJAX).
- * - Load modal content via GET when "Add Variant" is clicked (clothing only).
+ * - Load modal content via GET when "Add Variant" is clicked.
  * - Duplicate color name check (case-insensitive), disable submit if duplicate.
  * - Max 3 images, at least 1 required; at least 1 size; stock >= 0; no duplicate sizes.
  * - Submit via AJAX (FormData), on success inject new variant or reload.

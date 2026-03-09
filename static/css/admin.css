@@ -1789,7 +1789,7 @@ html, body {
     justify-content: flex-end;
 }
 
-/* Add Variant modal (product list, clothing only) — centered, well-styled */
+/* Add Variant modal (product list, gadget variants) — centered, well-styled */
 .add-variant-modal {
     position: fixed;
     inset: 0;
