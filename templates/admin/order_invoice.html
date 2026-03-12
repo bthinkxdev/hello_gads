@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -126,6 +127,29 @@
         .thank-you { text-align: center; font-size: 10pt; color: #6D4C41; font-weight: 600; margin-top: 8px; }
         .contact-row { font-size: 9pt; margin-top: 2px; }
 
+        .signature-section {
+            margin-top: 14px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: flex-end;
+            gap: 24px;
+        }
+        .signature-block {
+            text-align: center;
+            font-size: 8pt;
+            color: #555;
+        }
+        .signature-image {
+            width: 110px;
+            height: auto;
+            display: block;
+            margin: 0 auto 4px auto;
+        }
+        .seal-image {
+            width: 80px;
+            height: auto;
+        }
+
         @media print {
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .invoice-container { margin: 0; box-shadow: none; }
@@ -165,11 +189,11 @@
         <div class="invoice-header">
             <div class="company-info">
                 <div class="company-name">Hello Gads</div>
-                <div class="company-tagline">Premium Women's & Baby Clothing</div>
+                <div class="company-tagline">Premium Smartphones, Gadgets & Accessories</div>
                 <div class="company-details">
-                    Email: {{ site_email|default:"achujozefsl0709@gmail.com" }}<br>
-                    <span class="contact-row">Phone: {{ site_phone|default:"+91 80864 11143" }}</span><br>
-                    <span class="contact-row">WhatsApp: <a href="https://wa.me/{{ site_whatsapp|default:'918086411143' }}" style="color:#25D366;">{{ site_phone|default:"+91 80864 11143" }}</a></span><br>
+                    Email: {{ site_email|default:"info.hellogads@gmail.com" }}<br>
+                    <span class="contact-row">Phone: {{ site_phone|default:"+91 70343 60666" }}</span><br>
+                    <span class="contact-row">WhatsApp: <a href="https://wa.me/{{ site_whatsapp|default:'917034360666' }}" style="color:#25D366;">{{ site_phone|default:"+91 70343 60666" }}</a></span><br>
                     Website: www.hellogads.com
                 </div>
             </div>
@@ -273,8 +297,15 @@
             </div>
                 <div class="notes-section">
                     <div class="notes-title">Terms</div>
-                    <div class="notes-content">Quality guarantee • Contact: {{ site_phone|default:"+91 80864 11143" }} / WhatsApp • Thank you for shopping with Hello Gads!</div>
+                    <div class="notes-content">Quality guarantee • Contact: {{ site_phone|default:"+91 70343 60666" }} / WhatsApp • Thank you for shopping with Hello Gads!</div>
                 </div>
+            <div class="signature-section">
+                <div class="signature-block">
+                    <img src="{% static 'img/signature.png' %}" alt="Authorized Signatory" class="signature-image">
+                    <div>Authorized Signatory</div>
+                </div>
+                <img src="{% static 'img/round_seal_hello_gads.png' %}" alt="Hello Gads Seal" class="seal-image">
+            </div>
             <div class="thank-you">Thank you for your purchase! 🌟</div>
         </div>
     </div>
