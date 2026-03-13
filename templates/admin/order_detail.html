@@ -179,7 +179,7 @@
                 </a>
             </div>
             {% endif %}
-            {% if shipment.error_log %}
+            {% if shipment.error_log and shipment.current_status == "error" %}
             <div class="order-detail-info-row">
                 <span class="order-detail-info-label">Last Error</span>
                 <span class="order-detail-info-value" style="white-space: pre-wrap; color:#b71c1c;">

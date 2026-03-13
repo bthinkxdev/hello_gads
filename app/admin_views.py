@@ -1382,6 +1382,8 @@ class ShipmentRetryView(StaffRequiredMixin, View):
 
         try:
             create_shipment_for_order(order, shipment)
+            shipment.error_log = ""       
+            shipment.save(update_fields=["error_log", "updated_at"])
             messages.success(request, "Shipment successfully (re)created with Shiprocket.")
         except ShiprocketAPIError as exc:
             shipment.error_log = str(exc)
